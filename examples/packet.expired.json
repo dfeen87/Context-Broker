@@ -1,0 +1,18 @@
+{
+  "schema_version": "0.1",
+  "context_id": "ctx_expired_001",
+  "intent": "debugging",
+  "scope": "legacy-service",
+  "source": "ide",
+  "actor": "user@example.com",
+  "payload": {
+    "file": "src/service.py",
+    "line": 87,
+    "error": "Connection timeout",
+    "notes": "Occurred during load test"
+  },
+  "created_at": "2025-12-17T18:00:00Z",
+  "ttl": "1h",
+  "expires_at": "2025-12-17T19:00:00Z",
+  "permissions": ["debug"]
+}
