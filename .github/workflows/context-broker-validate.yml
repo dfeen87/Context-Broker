@@ -1,0 +1,31 @@
+name: Context Broker Validation
+
+on:
+  pull_request:
+  push:
+    paths:
+      - "examples/**"
+      - "schemas/**"
+      - "src/**"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install jsonschema
+
+      - name: Validate example packets
+        run: |
+          python src/validate_packet.py examples/packet.valid.json
+          ! python src/validate_packet.py examples/packet.expired.json
