@@ -1,0 +1,95 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://context-broker.dev/schemas/context_packet.schema.v0.1.json",
+
+  "title": "ContextPacket",
+  "description": "A time-bound, attributable unit of context exchange governed by ALCOA principles.",
+
+  "type": "object",
+
+  "required": [
+    "schema_version",
+    "context_id",
+    "intent",
+    "scope",
+    "source",
+    "actor",
+    "payload",
+    "created_at",
+    "ttl",
+    "expires_at"
+  ],
+
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "0.1",
+      "description": "Schema version for this context packet. Enables forward compatibility and audit stability."
+    },
+
+    "context_id": {
+      "type": "string",
+      "description": "Unique identifier for this context packet. (ALCOA: Attributable)"
+    },
+
+    "intent": {
+      "type": "string",
+      "description": "Declared purpose for which this context was promoted. Must be explicit and human-intended."
+    },
+
+    "scope": {
+      "type": "string",
+      "description": "Logical boundary for this context (project, task, or session). Prevents cross-contamination. (ALCOA: Accurate)"
+    },
+
+    "source": {
+      "type": "string",
+      "description": "Originating device or application that produced the context. (ALCOA: Attributable)"
+    },
+
+    "actor": {
+      "type": "string",
+      "description": "Human or system responsible for promoting this context. No anonymous promotion allowed. (ALCOA: Attributable)"
+    },
+
+    "payload": {
+      "type": "object",
+      "description": "Original, human-legible context content. Must not be silently transformed. (ALCOA: Original)",
+      "additionalProperties": true
+    },
+
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp when the context was created, at the moment of relevance. (ALCOA: Contemporaneous)"
+    },
+
+    "ttl": {
+      "type": "string",
+      "description": "Time-to-live duration (e.g., '30m', '2h'). Context without TTL is invalid."
+    },
+
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Calculated expiration timestamp. Routing MUST reject expired context. (Time as Control)"
+    },
+
+    "permissions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Explicitly allowed operations on this context (e.g., summarize, compare, debug). Defaults to none.",
+      "default": []
+    },
+
+    "annotations": {
+      "type": "object",
+      "description": "Optional, non-authoritative metadata. Must not alter original payload or intent.",
+      "additionalProperties": true
+    }
+  },
+
+  "additionalProperties": false
+}
