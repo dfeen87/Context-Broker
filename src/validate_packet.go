@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/santhosh-tekuri/jsonschema/v5"
@@ -15,7 +16,8 @@ import (
 var ttlRe = regexp.MustCompile(`^(\d+)([smhd])$`)
 
 func parseTTL(s string) (time.Duration, error) {
-	m := ttlRe.FindStringSubmatch(s)
+	trimmed := strings.TrimSpace(strings.ToLower(s))
+	m := ttlRe.FindStringSubmatch(trimmed)
 	if m == nil {
 		return 0, errors.New("ttl must match <int><s|m|h|d>")
 	}
@@ -51,7 +53,13 @@ func main() {
 	}
 
 	schemaCompiler := jsonschema.NewCompiler()
-	if err := schemaCompiler.AddResource("schema.json", os.Open(*schemaPath)); err != nil {
+	schemaFile, err := os.Open(*schemaPath)
+	if err != nil {
+		fail("SCHEMA_LOAD_ERROR", err)
+	}
+	defer schemaFile.Close()
+
+	if err := schemaCompiler.AddResource("schema.json", schemaFile); err != nil {
 		fail("SCHEMA_LOAD_ERROR", err)
 	}
 
@@ -74,17 +82,29 @@ func main() {
 		fail("SCHEMA_VIOLATION", err)
 	}
 
-	createdAt, err := time.Parse(time.RFC3339, packet["created_at"].(string))
+	createdAtStr, ok := packet["created_at"].(string)
+	if !ok {
+		fail("TIME_INVALID_CREATED_AT", "created_at must be a string")
+	}
+	createdAt, err := time.Parse(time.RFC3339Nano, createdAtStr)
 	if err != nil {
 		fail("TIME_INVALID_CREATED_AT", err)
 	}
 
-	expiresAt, err := time.Parse(time.RFC3339, packet["expires_at"].(string))
+	expiresAtStr, ok := packet["expires_at"].(string)
+	if !ok {
+		fail("TIME_INVALID_EXPIRES_AT", "expires_at must be a string")
+	}
+	expiresAt, err := time.Parse(time.RFC3339Nano, expiresAtStr)
 	if err != nil {
 		fail("TIME_INVALID_EXPIRES_AT", err)
 	}
 
-	ttl, err := parseTTL(packet["ttl"].(string))
+	ttlStr, ok := packet["ttl"].(string)
+	if !ok {
+		fail("TIME_INVALID_TTL", "ttl must be a string")
+	}
+	ttl, err := parseTTL(ttlStr)
 	if err != nil {
 		fail("TIME_INVALID_TTL", err)
 	}
