@@ -16,14 +16,17 @@ Schema evolution must therefore be:
 
 ## Versioning Rules
 
-- Schema versions follow `MAJOR.MINOR`
-- Current version: **0.1**
+- Schema versions follow `MAJOR.MINOR.PATCH`
+- Current version: **1.0.0**
+
+### PATCH changes MAY:
+- Fix typos or clarify wording
+- Add non-authoritative metadata
+- Tighten validation rules (non-breaking)
 
 ### MINOR changes MAY:
 - Add optional fields
-- Clarify descriptions
 - Add non-authoritative metadata
-- Tighten validation rules (non-breaking)
 
 ### MAJOR changes MUST:
 - Change required fields

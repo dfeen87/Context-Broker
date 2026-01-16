@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -15,17 +16,19 @@ import (
 
 var ttlRe = regexp.MustCompile(`^(\d+)([smhd])$`)
 
-func parseTTL(s string) (time.Duration, error) {
+func parseDuration(s string, label string) (time.Duration, error) {
 	trimmed := strings.TrimSpace(strings.ToLower(s))
 	m := ttlRe.FindStringSubmatch(trimmed)
 	if m == nil {
-		return 0, errors.New("ttl must match <int><s|m|h|d>")
+		return 0, fmt.Errorf("%s must match <int><s|m|h|d>", label)
 	}
 
-	var n int
-	fmt.Sscanf(m[1], "%d", &n)
+	n, err := strconv.Atoi(m[1])
+	if err != nil {
+		return 0, fmt.Errorf("%s must start with an integer", label)
+	}
 	if n <= 0 {
-		return 0, errors.New("ttl must be positive")
+		return 0, fmt.Errorf("%s must be positive", label)
 	}
 
 	switch m[2] {
@@ -44,11 +47,25 @@ func parseTTL(s string) (time.Duration, error) {
 
 func main() {
 	packetPath := flag.String("packet", "", "Path to packet JSON")
-	schemaPath := flag.String("schema", "schemas/context_packet.schema.v0.1.json", "Path to schema")
+	schemaPath := flag.String("schema", "schemas/context_packet.schema.v1.0.0.json", "Path to schema")
+	clockSkewStr := flag.String("clock-skew", "60s", "Allowed clock skew tolerance (e.g., 60s, 5m)")
+	allowFutureStr := flag.String("allow-future-created-at", "5m", "Allowed future offset for created_at")
 	flag.Parse()
 
 	if *packetPath == "" {
 		fmt.Fprintln(os.Stderr, "missing --packet")
+		os.Exit(2)
+	}
+
+	clockSkew, err := parseDuration(*clockSkewStr, "clock-skew")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(2)
+	}
+
+	allowFuture, err := parseDuration(*allowFutureStr, "allow-future-created-at")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
 	}
 
@@ -104,17 +121,30 @@ func main() {
 	if !ok {
 		fail("TIME_INVALID_TTL", "ttl must be a string")
 	}
-	ttl, err := parseTTL(ttlStr)
+	ttl, err := parseDuration(ttlStr, "ttl")
 	if err != nil {
 		fail("TIME_INVALID_TTL", err)
 	}
 
 	expected := createdAt.Add(ttl)
-	if !expiresAt.Equal(expected) {
+	diff := expiresAt.Sub(expected)
+	if diff < 0 {
+		diff = -diff
+	}
+	tolerance := clockSkew
+	if tolerance < time.Second {
+		tolerance = time.Second
+	}
+	if diff > tolerance {
 		fail("TIME_MISMATCH", "expires_at != created_at + ttl")
 	}
 
-	if time.Now().UTC().After(expiresAt) {
+	now := time.Now().UTC()
+	if createdAt.Sub(now) > allowFuture {
+		fail("TIME_CREATED_AT_IN_FUTURE", "created_at is too far in the future")
+	}
+
+	if now.Sub(expiresAt) > clockSkew {
 		fail("TIME_EXPIRED", "context packet expired")
 	}
 
@@ -129,7 +159,11 @@ func fail(code string, err any) {
 			{"code": code, "message": fmt.Sprint(err)},
 		},
 	}
-	b, _ := json.MarshalIndent(out, "", "  ")
+	b, err := json.MarshalIndent(out, "", "  ")
+	if err != nil {
+		fmt.Printf("{\"ok\":false,\"issues\":[{\"code\":\"%s\",\"message\":\"failed to serialize error response: %s\"}]}\n", code, err)
+		os.Exit(1)
+	}
 	fmt.Println(string(b))
 	os.Exit(1)
 }
