@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Context Broker — Packet Validator (Reference)
-Production-hardened validator for ContextPacket v0.1
+Production-hardened validator for ContextPacket v1.0.0
 
 - Validates JSON against the canonical schema
 - Enforces time constraints (created_at, ttl, expires_at)
@@ -282,8 +282,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument(
         "--schema",
         type=str,
-        default=str(Path("schemas") / "context_packet.schema.v0.1.json"),
-        help="Path to the JSON Schema file (default: schemas/context_packet.schema.v0.1.json).",
+        default=str(Path("schemas") / "context_packet.schema.v1.0.0.json"),
+        help="Path to the JSON Schema file (default: schemas/context_packet.schema.v1.0.0.json).",
     )
     parser.add_argument(
         "--clock-skew",

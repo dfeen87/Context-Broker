@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.1",
+  "schema_version": "1.0.0",
   "context_id": "ctx_expired_001",
   "intent": "debugging",
   "scope": "legacy-service",
