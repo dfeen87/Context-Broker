@@ -59,18 +59,18 @@ class ValidationResult:
 _DURATION_RE = re.compile(r"^\s*(\d+)\s*([smhd])\s*$", re.IGNORECASE)
 
 
-def parse_duration(duration: str) -> timedelta:
+def parse_duration(duration: str, label: str = "ttl") -> timedelta:
     """
     Parse simple TTL strings like: '30m', '2h', '15s', '7d'
     """
     m = _DURATION_RE.match(duration or "")
     if not m:
-        raise ValueError("ttl must match <int><s|m|h|d> (e.g., '30m', '2h')")
+        raise ValueError(f"{label} must match <int><s|m|h|d> (e.g., '30m', '2h')")
     value = int(m.group(1))
     unit = m.group(2).lower()
 
     if value <= 0:
-        raise ValueError("ttl must be positive")
+        raise ValueError(f"{label} must be positive")
 
     if unit == "s":
         return timedelta(seconds=value)
@@ -204,7 +204,7 @@ def validate_packet(
             created_at = None
 
         try:
-            ttl_td = parse_duration(packet["ttl"])
+            ttl_td = parse_duration(packet["ttl"], "ttl")
         except Exception as e:
             issues.append(ValidationIssue(code="TIME_INVALID_TTL", message=str(e), path="ttl"))
             ttl_td = None
@@ -313,8 +313,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     schema_path = Path(args.schema)
 
     try:
-        clock_skew = parse_duration(args.clock_skew)
-        allow_future = parse_duration(args.allow_future_created_at)
+        clock_skew = parse_duration(args.clock_skew, "clock-skew")
+        allow_future = parse_duration(args.allow_future_created_at, "allow-future-created-at")
     except Exception as e:
         print(json.dumps({"ok": False, "issues": [{"code": "ARG_INVALID", "message": str(e), "path": ""}]}))
         return 2
