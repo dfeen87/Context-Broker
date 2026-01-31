@@ -14,7 +14,7 @@ import (
 	"github.com/santhosh-tekuri/jsonschema/v5"
 )
 
-var ttlRe = regexp.MustCompile(`^(\d+)([smhd])$`)
+var ttlRe = regexp.MustCompile(`^\s*(\d+)\s*([smhd])\s*$`)
 
 func parseDuration(s string, label string) (time.Duration, error) {
 	trimmed := strings.TrimSpace(strings.ToLower(s))
