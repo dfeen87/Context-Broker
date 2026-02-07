@@ -28,6 +28,7 @@ from jsonschema import Draft7Validator, FormatChecker
 # ---------- Logging ----------
 
 LOG = logging.getLogger("context-broker.validator")
+_FORMAT_CHECKER = FormatChecker()
 
 
 def _configure_logging(verbose: bool) -> None:
@@ -111,12 +112,10 @@ def parse_rfc3339(dt_str: str) -> datetime:
 
 def load_json(path: Path) -> Dict[str, Any]:
     try:
-        raw = path.read_text(encoding="utf-8")
+        with path.open("r", encoding="utf-8") as handle:
+            data = json.load(handle)
     except OSError as e:
         raise RuntimeError(f"failed to read packet file: {e}") from e
-
-    try:
-        data = json.loads(raw)
     except json.JSONDecodeError as e:
         raise RuntimeError(f"invalid JSON: {e}") from e
 
@@ -128,12 +127,10 @@ def load_json(path: Path) -> Dict[str, Any]:
 
 def load_schema(path: Path) -> Dict[str, Any]:
     try:
-        raw = path.read_text(encoding="utf-8")
+        with path.open("r", encoding="utf-8") as handle:
+            schema = json.load(handle)
     except OSError as e:
         raise RuntimeError(f"failed to read schema file: {e}") from e
-
-    try:
-        schema = json.loads(raw)
     except json.JSONDecodeError as e:
         raise RuntimeError(f"invalid schema JSON: {e}") from e
 
@@ -169,6 +166,7 @@ def validate_packet(
     packet: Dict[str, Any],
     schema: Dict[str, Any],
     *,
+    validator: Optional[Draft7Validator] = None,
     now_utc: datetime,
     clock_skew: timedelta,
     allow_future_created_at: timedelta,
@@ -176,7 +174,8 @@ def validate_packet(
     issues = []
 
     # 1) Schema validation (structure, required fields, types, formats)
-    validator = Draft7Validator(schema, format_checker=FormatChecker())
+    if validator is None:
+        validator = Draft7Validator(schema, format_checker=_FORMAT_CHECKER)
     schema_errors = sorted(validator.iter_errors(packet), key=lambda e: str(e.path))
 
     for err in schema_errors:
@@ -327,11 +326,13 @@ def main(argv: Optional[list[str]] = None) -> int:
         print(json.dumps(out, indent=2))
         return 2
 
+    validator = Draft7Validator(schema, format_checker=_FORMAT_CHECKER)
     now_utc = datetime.now(timezone.utc)
 
     result = validate_packet(
         packet,
         schema,
+        validator=validator,
         now_utc=now_utc,
         clock_skew=clock_skew,
         allow_future_created_at=allow_future,
