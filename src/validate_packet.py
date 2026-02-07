@@ -22,7 +22,6 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
-from jsonschema import Draft7Validator, FormatChecker
 
 
 # ---------- Logging ----------
@@ -111,12 +110,10 @@ def parse_rfc3339(dt_str: str) -> datetime:
 
 def load_json(path: Path) -> Dict[str, Any]:
     try:
-        raw = path.read_text(encoding="utf-8")
+        with path.open("r", encoding="utf-8") as handle:
+            data = json.load(handle)
     except OSError as e:
         raise RuntimeError(f"failed to read packet file: {e}") from e
-
-    try:
-        data = json.loads(raw)
     except json.JSONDecodeError as e:
         raise RuntimeError(f"invalid JSON: {e}") from e
 
@@ -128,12 +125,10 @@ def load_json(path: Path) -> Dict[str, Any]:
 
 def load_schema(path: Path) -> Dict[str, Any]:
     try:
-        raw = path.read_text(encoding="utf-8")
+        with path.open("r", encoding="utf-8") as handle:
+            schema = json.load(handle)
     except OSError as e:
         raise RuntimeError(f"failed to read schema file: {e}") from e
-
-    try:
-        schema = json.loads(raw)
     except json.JSONDecodeError as e:
         raise RuntimeError(f"invalid schema JSON: {e}") from e
 
@@ -143,24 +138,72 @@ def load_schema(path: Path) -> Dict[str, Any]:
     return schema
 
 
-def _json_path(err) -> str:
-    """
-    Convert jsonschema error paths to a readable dotted path.
-    """
-    parts = []
-    for p in list(err.absolute_path):
-        if isinstance(p, int):
-            parts.append(f"[{p}]")
-        else:
-            parts.append(str(p))
-    # join with dots, but keep [idx] glued
-    out = ""
-    for part in parts:
-        if part.startswith("["):
-            out += part
-        else:
-            out += ("." if out else "") + part
-    return out
+def _type_matches(value: Any, expected: str) -> bool:
+    if expected == "string":
+        return isinstance(value, str)
+    if expected == "object":
+        return isinstance(value, dict)
+    if expected == "array":
+        return isinstance(value, list)
+    return True
+
+
+def _validate_schema(packet: Dict[str, Any], schema: Dict[str, Any]) -> Tuple[ValidationIssue, ...]:
+    issues: list[ValidationIssue] = []
+
+    required = schema.get("required", [])
+    properties = schema.get("properties", {})
+    additional_allowed = schema.get("additionalProperties", True)
+
+    for key in required:
+        if key not in packet:
+            issues.append(
+                ValidationIssue(
+                    code="SCHEMA_VIOLATION",
+                    message=f"'{key}' is a required property",
+                    path=key,
+                )
+            )
+
+    if not additional_allowed and isinstance(properties, dict):
+        for key in packet.keys():
+            if key not in properties:
+                issues.append(
+                    ValidationIssue(
+                        code="SCHEMA_VIOLATION",
+                        message=f"Additional properties are not allowed ('{key}' was unexpected)",
+                        path=key,
+                    )
+                )
+
+    for key, spec in properties.items():
+        if key not in packet:
+            continue
+        expected_type = spec.get("type")
+        if expected_type and not _type_matches(packet[key], expected_type):
+            issues.append(
+                ValidationIssue(
+                    code="SCHEMA_VIOLATION",
+                    message=f"'{key}' must be of type '{expected_type}'",
+                    path=key,
+                )
+            )
+
+        if expected_type == "array" and isinstance(packet[key], list):
+            item_spec = spec.get("items", {})
+            item_type = item_spec.get("type")
+            if item_type:
+                for idx, item in enumerate(packet[key]):
+                    if not _type_matches(item, item_type):
+                        issues.append(
+                            ValidationIssue(
+                                code="SCHEMA_VIOLATION",
+                                message=f"'{key}[{idx}]' must be of type '{item_type}'",
+                                path=f"{key}[{idx}]",
+                            )
+                        )
+
+    return tuple(issues)
 
 
 # ---------- Core Validation ----------
@@ -173,21 +216,9 @@ def validate_packet(
     clock_skew: timedelta,
     allow_future_created_at: timedelta,
 ) -> ValidationResult:
-    issues = []
+    issues = list(_validate_schema(packet, schema))
 
     # 1) Schema validation (structure, required fields, types, formats)
-    validator = Draft7Validator(schema, format_checker=FormatChecker())
-    schema_errors = sorted(validator.iter_errors(packet), key=lambda e: str(e.path))
-
-    for err in schema_errors:
-        issues.append(
-            ValidationIssue(
-                code="SCHEMA_VIOLATION",
-                message=err.message,
-                path=_json_path(err),
-            )
-        )
-
     schema_version = packet.get("schema_version") if isinstance(packet.get("schema_version"), str) else None
 
     # If schema errors exist, we still try some semantic checks only if required fields exist.
