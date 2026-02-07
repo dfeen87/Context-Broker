@@ -27,6 +27,7 @@ from typing import Any, Dict, Optional, Tuple
 # ---------- Logging ----------
 
 LOG = logging.getLogger("context-broker.validator")
+_FORMAT_CHECKER = FormatChecker()
 
 
 def _configure_logging(verbose: bool) -> None:
@@ -212,6 +213,7 @@ def validate_packet(
     packet: Dict[str, Any],
     schema: Dict[str, Any],
     *,
+    validator: Optional[Draft7Validator] = None,
     now_utc: datetime,
     clock_skew: timedelta,
     allow_future_created_at: timedelta,
@@ -358,11 +360,13 @@ def main(argv: Optional[list[str]] = None) -> int:
         print(json.dumps(out, indent=2))
         return 2
 
+    validator = Draft7Validator(schema, format_checker=_FORMAT_CHECKER)
     now_utc = datetime.now(timezone.utc)
 
     result = validate_packet(
         packet,
         schema,
+        validator=validator,
         now_utc=now_utc,
         clock_skew=clock_skew,
         allow_future_created_at=allow_future,
