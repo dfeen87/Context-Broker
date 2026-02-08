@@ -265,6 +265,55 @@ Future work may include additional reference implementations, integration stubs,
 
 ---
 
+## Continuous Integration
+
+Context Broker runs a lightweight GitHub Actions CI workflow on every push and pull request. It focuses on fast, deterministic checks that validate core behavior without requiring external services.
+
+**What CI checks**
+- ✅ Python dependency install
+- ✅ Build sanity via `py_compile` on the reference validator
+- ✅ Unit tests (only if a `tests/` directory exists)
+- ✅ API smoke test: validates a minimal context packet against the schema and time rules
+
+**What CI intentionally does not check**
+- ❌ Full end-to-end runtime with external brokers or databases
+- ❌ Environment-specific integrations or vendor services
+
+**Reproduce locally**
+```bash
+python -m pip install -r requirements.txt
+python -m py_compile src/validate_packet.py
+python -m unittest discover -s tests  # only if tests/ exists
+
+python - <<'PY'
+import json
+import tempfile
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+now = datetime.now(timezone.utc)
+packet = {
+    "schema_version": "1.0.0",
+    "context_id": "ctx_local_smoke",
+    "intent": "ci_smoke",
+    "scope": "ci",
+    "source": "local",
+    "actor": "developer",
+    "payload": {"message": "smoke test"},
+    "created_at": now.isoformat().replace("+00:00", "Z"),
+    "ttl": "1h",
+    "expires_at": (now + timedelta(hours=1)).isoformat().replace("+00:00", "Z"),
+    "permissions": ["read"],
+}
+tmp = Path(tempfile.gettempdir()) / "ci_packet.json"
+tmp.write_text(json.dumps(packet), encoding="utf-8")
+print(tmp)
+PY
+python src/validate_packet.py /tmp/ci_packet.json --schema schemas/context_packet.schema.v1.0.0.json --output text
+```
+
+---
+
 ## Philosophy
 
 ### The Core Insight
