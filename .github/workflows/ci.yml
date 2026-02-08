@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip && pip install -r requirements.txt
+
+      - name: Build (compile Python)
+        run: python -m py_compile src/validate_packet.py
+
+      - name: Unit tests (if present)
+        run: |
+          if [ -d tests ]; then
+            python -m unittest discover -s tests
+          else
+            echo "No unit tests found."
+          fi
+
+      - name: API smoke test (packet validation)
+        run: |
+          python - <<'PY'
+          import json
+          import tempfile
+          from datetime import datetime, timedelta, timezone
+          from pathlib import Path
+          now = datetime.now(timezone.utc)
+          packet = {
+              "schema_version": "1.0.0",
+              "context_id": "ctx_ci_smoke",
+              "intent": "ci_smoke",
+              "scope": "ci",
+              "source": "github-actions",
+              "actor": "ci",
+              "payload": {"message": "smoke test"},
+              "created_at": now.isoformat().replace("+00:00", "Z"),
+              "ttl": "1h",
+              "expires_at": (now + timedelta(hours=1)).isoformat().replace("+00:00", "Z"),
+              "permissions": ["read"],
+          }
+          tmp = Path(tempfile.gettempdir()) / "ci_packet.json"
+          tmp.write_text(json.dumps(packet), encoding="utf-8")
+          print(tmp)
+          PY
+          python src/validate_packet.py /tmp/ci_packet.json --schema schemas/context_packet.schema.v1.0.0.json --output text
