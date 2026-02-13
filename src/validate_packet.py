@@ -14,7 +14,6 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import os
 import re
 import sys
 from dataclasses import dataclass
@@ -140,88 +139,32 @@ def load_schema(path: Path) -> Dict[str, Any]:
     return schema
 
 
-def _type_matches(value: Any, expected: str) -> bool:
-    if expected == "string":
-        return isinstance(value, str)
-    if expected == "object":
-        return isinstance(value, dict)
-    if expected == "array":
-        return isinstance(value, list)
-    return True
-
-
-def _validate_schema(packet: Dict[str, Any], schema: Dict[str, Any]) -> Tuple[ValidationIssue, ...]:
-    issues: list[ValidationIssue] = []
-
-    required = schema.get("required", [])
-    properties = schema.get("properties", {})
-    additional_allowed = schema.get("additionalProperties", True)
-
-    for key in required:
-        if key not in packet:
-            issues.append(
-                ValidationIssue(
-                    code="SCHEMA_VIOLATION",
-                    message=f"'{key}' is a required property",
-                    path=key,
-                )
-            )
-
-    if not additional_allowed and isinstance(properties, dict):
-        for key in packet.keys():
-            if key not in properties:
-                issues.append(
-                    ValidationIssue(
-                        code="SCHEMA_VIOLATION",
-                        message=f"Additional properties are not allowed ('{key}' was unexpected)",
-                        path=key,
-                    )
-                )
-
-    for key, spec in properties.items():
-        if key not in packet:
-            continue
-        expected_type = spec.get("type")
-        if expected_type and not _type_matches(packet[key], expected_type):
-            issues.append(
-                ValidationIssue(
-                    code="SCHEMA_VIOLATION",
-                    message=f"'{key}' must be of type '{expected_type}'",
-                    path=key,
-                )
-            )
-
-        if expected_type == "array" and isinstance(packet[key], list):
-            item_spec = spec.get("items", {})
-            item_type = item_spec.get("type")
-            if item_type:
-                for idx, item in enumerate(packet[key]):
-                    if not _type_matches(item, item_type):
-                        issues.append(
-                            ValidationIssue(
-                                code="SCHEMA_VIOLATION",
-                                message=f"'{key}[{idx}]' must be of type '{item_type}'",
-                                path=f"{key}[{idx}]",
-                            )
-                        )
-
-    return tuple(issues)
-
-
 # ---------- Core Validation ----------
 
 def validate_packet(
     packet: Dict[str, Any],
-    schema: Dict[str, Any],
+    schema: Dict[str, Any],  # noqa: ARG001 - kept for API compatibility, validator already contains schema
     *,
-    validator: Optional[Draft7Validator] = None,
+    validator: Draft7Validator,
     now_utc: datetime,
     clock_skew: timedelta,
     allow_future_created_at: timedelta,
 ) -> ValidationResult:
-    issues = list(_validate_schema(packet, schema))
-
-    # 1) Schema validation (structure, required fields, types, formats)
+    issues: list[ValidationIssue] = []
+    
+    # 1) Schema validation (structure, required fields, types, formats, const)
+    # Use the proper JSON Schema validator instead of custom implementation
+    for error in validator.iter_errors(packet):
+        # Convert JSON Schema error to ValidationIssue
+        path = ".".join(str(p) for p in error.path) if error.path else error.json_path.split('$.')[-1] if error.json_path else ""
+        issues.append(
+            ValidationIssue(
+                code="SCHEMA_VIOLATION",
+                message=error.message,
+                path=path,
+            )
+        )
+    
     schema_version = packet.get("schema_version") if isinstance(packet.get("schema_version"), str) else None
 
     # If schema errors exist, we still try some semantic checks only if required fields exist.
