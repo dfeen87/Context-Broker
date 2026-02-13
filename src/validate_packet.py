@@ -143,20 +143,47 @@ def load_schema(path: Path) -> Dict[str, Any]:
 
 def validate_packet(
     packet: Dict[str, Any],
-    schema: Dict[str, Any],  # noqa: ARG001 - kept for API compatibility, validator already contains schema
+    schema: Dict[str, Any],
     *,
     validator: Draft7Validator,
     now_utc: datetime,
     clock_skew: timedelta,
     allow_future_created_at: timedelta,
 ) -> ValidationResult:
+    """
+    Validate a context packet against schema and time semantics.
+    
+    Args:
+        packet: The context packet to validate
+        schema: JSON Schema dict (kept for backward compatibility; validator already contains schema)
+        validator: Draft7Validator instance initialized with the schema
+        now_utc: Current UTC time for expiration checks
+        clock_skew: Allowed clock skew tolerance for time comparisons
+        allow_future_created_at: Allowed future offset for created_at timestamp
+    
+    Returns:
+        ValidationResult with ok status and any issues found
+    
+    Note:
+        The `schema` parameter is retained for backward compatibility with existing callers.
+        The validator parameter already contains the schema, so this parameter is not used
+        internally. Callers should pass the same schema used to create the validator.
+    """
     issues: list[ValidationIssue] = []
     
     # 1) Schema validation (structure, required fields, types, formats, const)
     # Use the proper JSON Schema validator instead of custom implementation
     for error in validator.iter_errors(packet):
         # Convert JSON Schema error to ValidationIssue
-        path = ".".join(str(p) for p in error.path) if error.path else error.json_path.split('$.')[-1] if error.json_path else ""
+        # Extract path from error.path (preferred) or error.json_path (fallback)
+        if error.path:
+            path = ".".join(str(p) for p in error.path)
+        elif error.json_path:
+            # json_path is like '$.field', extract just the field part
+            path = error.json_path.split('$.')[-1]
+        else:
+            path = ""
+        
         issues.append(
             ValidationIssue(
                 code="SCHEMA_VIOLATION",
