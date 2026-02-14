@@ -354,22 +354,29 @@ Future work may include additional reference implementations, integration stubs,
 
 Context Broker runs a lightweight GitHub Actions CI workflow on every push and pull request. It focuses on fast, deterministic checks that validate core behavior without requiring external services.
 
-**What CI checks**
-- ✅ Python dependency install
-- ✅ Build sanity via `py_compile` on the reference validator
-- ✅ Unit tests (only if a `tests/` directory exists)
-- ✅ API smoke test: validates a minimal context packet against the schema and time rules
+**What CI checks:**
+- ✅ Python dependency installation (`pip install -r requirements.txt`)
+- ✅ Syntax validation via `py_compile` on the reference validator
+- ✅ Unit tests (when `tests/` directory exists — currently optional)
+- ✅ Smoke test: validates a dynamically-generated context packet against schema and time rules
 
-**What CI intentionally does not check**
+**What CI intentionally does not check:**
 - ❌ Full end-to-end runtime with external brokers or databases
 - ❌ Environment-specific integrations or vendor services
 
-**Reproduce locally**
-```bash
-python -m pip install -r requirements.txt
-python -m py_compile src/validate_packet.py
-python -m unittest discover -s tests  # only if tests/ exists
+**Reproduce CI checks locally:**
 
+```bash
+# Install dependencies
+python -m pip install -r requirements.txt
+
+# Verify Python syntax
+python -m py_compile src/validate_packet.py
+
+# Run unit tests (only if tests/ directory exists)
+python -m unittest discover -s tests 2>/dev/null || echo "No tests directory found"
+
+# Run smoke test: validate a fresh context packet
 python - <<'PY'
 import json
 import tempfile
@@ -392,9 +399,17 @@ packet = {
 }
 tmp = Path(tempfile.gettempdir()) / "ci_packet.json"
 tmp.write_text(json.dumps(packet), encoding="utf-8")
-print(tmp)
+print(f"Created test packet: {tmp}")
 PY
-python src/validate_packet.py /tmp/ci_packet.json --schema schemas/context_packet.schema.v1.0.0.json --output text
+
+# Validate the generated packet
+python src/validate_packet.py /tmp/ci_packet.json --output text
+```
+
+**Expected output:**
+```
+Created test packet: /tmp/ci_packet.json
+OK: packet is valid
 ```
 
 ---

@@ -342,7 +342,7 @@ git clone https://github.com/dfeen87/Context-Broker.git
 cd Context-Broker/examples
 ```
 
-For full API documentation, see [`docs/API.md`](./API.md).
+For implementation details, see the validator source code in [`src/validate_packet.py`](../src/validate_packet.py).
 
 ---
 

@@ -366,10 +366,10 @@ Like TCP/IP for networking or filesystems for storage, it provides a simple, sta
 
 ## Next Steps
 
-- 📖 **[Read the ALCOA documentation](./ALCOA-and-time.md)** to understand the quality framework
-- 🔧 **[See integration examples](./examples/)** for common patterns
-- 📡 **[API reference](./API.md)** for implementation details
-- 🤝 **[Contributing guide](./CONTRIBUTING.md)** for extending the system
+- 📖 **[Read the ALCOA documentation](./alcoa-and-time.md)** to understand the quality framework
+- 🎓 **[See example packets](../examples/)** for valid and expired packet samples
+- 📄 **[Context Packet Evolution RFC](./rfc-0001-context-packet-evolution.md)** for design decisions
+- 🤝 **[Contributing guide](../CONTRIBUTING.md)** for extending the system
 
 ---
 
