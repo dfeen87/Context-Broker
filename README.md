@@ -1,10 +1,32 @@
 # Context Broker
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![CI](https://github.com/dfeen87/Context-Broker/actions/workflows/ci.yml/badge.svg)](https://github.com/dfeen87/Context-Broker/actions/workflows/ci.yml)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 
 **Context Broker** is a minimal, MIT-licensed reference implementation for mediating context safely between devices, applications, and AI systems.
 
 It treats context as a **time-bound, attributable artifact**, not an ambient data stream.
+
+---
+
+## Table of Contents
+
+- [The Problem](#the-problem)
+- [What Context Broker Is](#what-context-broker-is)
+- [What Context Broker Is Not](#what-context-broker-is-not)
+- [Quick Start](#quick-start)
+- [Core Principles](#core-principles)
+- [How Context Broker Fits in Larger Systems](#how-context-broker-fits-in-larger-systems)
+- [Illustrative Example](#illustrative-example-conceptual)
+- [Use Cases](#use-cases)
+- [Design Goals](#design-goals)
+- [Project Status](#project-status)
+- [Documentation](#documentation)
+- [Continuous Integration](#continuous-integration)
+- [Philosophy](#philosophy)
+- [Community](#community)
+- [License](#license)
 
 ---
 
@@ -72,6 +94,71 @@ Context Broker intentionally does **not** implement:
 > **Those concerns belong up-stack.**
 
 Context Broker remains valuable by **staying small and focused**.
+
+---
+
+## Quick Start
+
+### Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/dfeen87/Context-Broker.git
+cd Context-Broker
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+### Basic Usage
+
+**Validate a context packet:**
+
+```bash
+# Validate a valid packet
+python src/validate_packet.py examples/packet.valid.json
+
+# Check an expired packet
+python src/validate_packet.py examples/packet.expired.json
+
+# Get help
+python src/validate_packet.py --help
+```
+
+**Example output (valid packet):**
+
+```bash
+python src/validate_packet.py examples/packet.valid.json --output text
+# Output: OK: packet is valid
+```
+
+**Example output (expired packet):**
+
+```bash
+python src/validate_packet.py examples/packet.expired.json --output text
+# Output: FAIL: packet is invalid
+# - TIME_EXPIRED (expires_at): context packet is expired...
+```
+
+### Project Structure
+
+```
+Context-Broker/
+├── src/                          # Validator implementations
+│   ├── validate_packet.py        # Python validator (reference)
+│   └── validate_packet.go        # Go validator
+├── schemas/                      # JSON Schema definitions
+│   ├── context_packet.schema.v1.0.0.json  # Current schema
+│   └── context_packet.schema.v0.1.json    # Legacy schema
+├── examples/                     # Sample context packets
+│   ├── packet.valid.json         # Valid packet example
+│   └── packet.expired.json       # Expired packet example
+├── docs/                         # Design documentation
+│   ├── alcoa-and-time.md         # ALCOA principles and time semantics
+│   ├── interoperability-notes.md # Multi-vendor integration guidance
+│   └── rfc-0001-context-packet-evolution.md
+└── README.md                     # This file
+```
 
 ---
 
@@ -259,9 +346,9 @@ Future work may include additional reference implementations, integration stubs,
 |----------|-------------|
 | 📖 [ALCOA Principles](docs/alcoa-and-time.md) | Deep dive into quality framework and time constraints |
 | 🔗 [Interoperability Notes](docs/interoperability-notes.md) | How Context Broker fits in multi-vendor AI ecosystems |
-| 🔧 [API Reference](docs/API.md) | Complete API documentation |
+| 📄 [RFC-0001: Context Packet Evolution](docs/rfc-0001-context-packet-evolution.md) | Design decisions and packet format evolution |
 | 🤝 [Contributing Guide](CONTRIBUTING.md) | How to extend and improve Context Broker |
-| 🎓 [Examples](examples/) | Integration patterns and sample code |
+| 🎓 [Example Packets](examples/) | Valid and expired context packet samples |
 
 ---
 
@@ -269,22 +356,29 @@ Future work may include additional reference implementations, integration stubs,
 
 Context Broker runs a lightweight GitHub Actions CI workflow on every push and pull request. It focuses on fast, deterministic checks that validate core behavior without requiring external services.
 
-**What CI checks**
-- ✅ Python dependency install
-- ✅ Build sanity via `py_compile` on the reference validator
-- ✅ Unit tests (only if a `tests/` directory exists)
-- ✅ API smoke test: validates a minimal context packet against the schema and time rules
+**What CI checks:**
+- ✅ Python dependency installation (`pip install -r requirements.txt`)
+- ✅ Syntax validation via `py_compile` on the reference validator
+- ✅ Unit tests (when `tests/` directory exists — currently optional)
+- ✅ Smoke test: validates a dynamically-generated context packet against schema and time rules
 
-**What CI intentionally does not check**
+**What CI intentionally does not check:**
 - ❌ Full end-to-end runtime with external brokers or databases
 - ❌ Environment-specific integrations or vendor services
 
-**Reproduce locally**
-```bash
-python -m pip install -r requirements.txt
-python -m py_compile src/validate_packet.py
-python -m unittest discover -s tests  # only if tests/ exists
+**Reproduce CI checks locally:**
 
+```bash
+# Install dependencies
+python -m pip install -r requirements.txt
+
+# Verify Python syntax
+python -m py_compile src/validate_packet.py
+
+# Run unit tests (only if tests/ directory exists)
+python -m unittest discover -s tests 2>/dev/null || echo "No tests directory found"
+
+# Run smoke test: validate a fresh context packet
 python - <<'PY'
 import json
 import tempfile
@@ -307,10 +401,24 @@ packet = {
 }
 tmp = Path(tempfile.gettempdir()) / "ci_packet.json"
 tmp.write_text(json.dumps(packet), encoding="utf-8")
-print(tmp)
+print(f"Created test packet: {tmp}")
 PY
-python src/validate_packet.py /tmp/ci_packet.json --schema schemas/context_packet.schema.v1.0.0.json --output text
+
+# Validate the generated packet
+# Note: Use the path shown in the output above. On Unix/Linux/macOS this is typically
+# /tmp/ci_packet.json, on Windows it's usually C:\Users\<username>\AppData\Local\Temp\ci_packet.json
+python src/validate_packet.py /tmp/ci_packet.json --output text  # Unix/Linux/macOS
+# OR on Windows:
+# python src/validate_packet.py %TEMP%\ci_packet.json --output text
 ```
+
+**Expected output:**
+```
+Created test packet: /tmp/ci_packet.json
+OK: packet is valid
+```
+
+*Note: The exact path may vary by system (e.g., `C:\Users\...\Temp\` on Windows).*
 
 ---
 
@@ -346,8 +454,8 @@ By **constraining** the system, we make it:
 
 ## Community
 
-- 💬 **[Discussions](https://github.com/your-org/context-broker/discussions)** — Ask questions, share ideas
-- 🐛 **[Issues](https://github.com/your-org/context-broker/issues)** — Report bugs, request features
+- 💬 **[Discussions](https://github.com/dfeen87/Context-Broker/discussions)** — Ask questions, share ideas
+- 🐛 **[Issues](https://github.com/dfeen87/Context-Broker/issues)** — Report bugs, request features
 - 🤝 **[Contributing](CONTRIBUTING.md)** — Submit PRs, improve docs
 
 ---
