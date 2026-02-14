@@ -405,7 +405,11 @@ print(f"Created test packet: {tmp}")
 PY
 
 # Validate the generated packet
-python src/validate_packet.py /tmp/ci_packet.json --output text
+# Note: Use the path shown in the output above. On Unix/Linux/macOS this is typically
+# /tmp/ci_packet.json, on Windows it's usually C:\Users\<username>\AppData\Local\Temp\ci_packet.json
+python src/validate_packet.py /tmp/ci_packet.json --output text  # Unix/Linux/macOS
+# OR on Windows:
+# python src/validate_packet.py %TEMP%\ci_packet.json --output text
 ```
 
 **Expected output:**
