@@ -412,6 +412,8 @@ Created test packet: /tmp/ci_packet.json
 OK: packet is valid
 ```
 
+*Note: The exact path may vary by system (e.g., `C:\Users\...\Temp\` on Windows).*
+
 ---
 
 ## Philosophy
