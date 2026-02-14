@@ -336,10 +336,10 @@ Together, they form the foundation for **safe, deterministic context mediation**
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/context-broker.git
+git clone https://github.com/dfeen87/Context-Broker.git
 
 # See the examples directory for integration patterns
-cd context-broker/examples
+cd Context-Broker/examples
 ```
 
 For full API documentation, see [`docs/API.md`](./API.md).

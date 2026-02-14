@@ -1,10 +1,30 @@
 # Context Broker
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![CI](https://github.com/dfeen87/Context-Broker/actions/workflows/ci.yml/badge.svg)](https://github.com/dfeen87/Context-Broker/actions/workflows/ci.yml)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 
 **Context Broker** is a minimal, MIT-licensed reference implementation for mediating context safely between devices, applications, and AI systems.
 
 It treats context as a **time-bound, attributable artifact**, not an ambient data stream.
+
+---
+
+## Table of Contents
+
+- [The Problem](#the-problem)
+- [What Context Broker Is](#what-context-broker-is)
+- [What Context Broker Is Not](#what-context-broker-is-not)
+- [Core Principles](#core-principles)
+- [Quick Start](#quick-start)
+- [How Context Broker Fits in Larger Systems](#how-context-broker-fits-in-larger-systems)
+- [Use Cases](#use-cases)
+- [Project Status](#project-status)
+- [Documentation](#documentation)
+- [Continuous Integration](#continuous-integration)
+- [Philosophy](#philosophy)
+- [Community](#community)
+- [License](#license)
 
 ---
 
@@ -72,6 +92,71 @@ Context Broker intentionally does **not** implement:
 > **Those concerns belong up-stack.**
 
 Context Broker remains valuable by **staying small and focused**.
+
+---
+
+## Quick Start
+
+### Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/dfeen87/Context-Broker.git
+cd Context-Broker
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+### Basic Usage
+
+**Validate a context packet:**
+
+```bash
+# Validate a valid packet
+python src/validate_packet.py examples/packet.valid.json
+
+# Check an expired packet
+python src/validate_packet.py examples/packet.expired.json
+
+# Get help
+python src/validate_packet.py --help
+```
+
+**Example output (valid packet):**
+
+```bash
+python src/validate_packet.py examples/packet.valid.json --output text
+# Output: OK: packet is valid
+```
+
+**Example output (expired packet):**
+
+```bash
+python src/validate_packet.py examples/packet.expired.json --output text
+# Output: FAIL: packet is invalid
+# - TIME_EXPIRED (expires_at): context packet is expired...
+```
+
+### Project Structure
+
+```
+Context-Broker/
+├── src/                          # Validator implementations
+│   ├── validate_packet.py        # Python validator (reference)
+│   └── validate_packet.go        # Go validator
+├── schemas/                      # JSON Schema definitions
+│   ├── context_packet.schema.v1.0.0.json  # Current schema
+│   └── context_packet.schema.v0.1.json    # Legacy schema
+├── examples/                     # Sample context packets
+│   ├── packet.valid.json         # Valid packet example
+│   └── packet.expired.json       # Expired packet example
+├── docs/                         # Design documentation
+│   ├── alcoa-and-time.md         # ALCOA principles and time semantics
+│   ├── interoperability-notes.md # Multi-vendor integration guidance
+│   └── rfc-0001-context-packet-evolution.md
+└── README.md                     # This file
+```
 
 ---
 
@@ -259,9 +344,9 @@ Future work may include additional reference implementations, integration stubs,
 |----------|-------------|
 | 📖 [ALCOA Principles](docs/alcoa-and-time.md) | Deep dive into quality framework and time constraints |
 | 🔗 [Interoperability Notes](docs/interoperability-notes.md) | How Context Broker fits in multi-vendor AI ecosystems |
-| 🔧 [API Reference](docs/API.md) | Complete API documentation |
+| 📄 [RFC-0001: Context Packet Evolution](docs/rfc-0001-context-packet-evolution.md) | Design decisions and packet format evolution |
 | 🤝 [Contributing Guide](CONTRIBUTING.md) | How to extend and improve Context Broker |
-| 🎓 [Examples](examples/) | Integration patterns and sample code |
+| 🎓 [Example Packets](examples/) | Valid and expired context packet samples |
 
 ---
 
@@ -346,8 +431,8 @@ By **constraining** the system, we make it:
 
 ## Community
 
-- 💬 **[Discussions](https://github.com/your-org/context-broker/discussions)** — Ask questions, share ideas
-- 🐛 **[Issues](https://github.com/your-org/context-broker/issues)** — Report bugs, request features
+- 💬 **[Discussions](https://github.com/dfeen87/Context-Broker/discussions)** — Ask questions, share ideas
+- 🐛 **[Issues](https://github.com/dfeen87/Context-Broker/issues)** — Report bugs, request features
 - 🤝 **[Contributing](CONTRIBUTING.md)** — Submit PRs, improve docs
 
 ---
