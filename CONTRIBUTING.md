@@ -70,7 +70,7 @@ Pull requests are welcome! To submit a PR:
 ### Setup Steps
 
 ```bash
-# Clone your fork
+# Clone your fork (replace YOUR-USERNAME with your GitHub username)
 git clone https://github.com/YOUR-USERNAME/Context-Broker.git
 cd Context-Broker
 
