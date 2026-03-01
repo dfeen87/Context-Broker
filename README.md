@@ -27,6 +27,8 @@ It treats context as a **time-bound, attributable artifact**, not an ambient dat
 - [Philosophy](#philosophy)
 - [Community](#community)
 - [License](#license)
+- [Acknowledgements](#acknowledgements)
+- [Closing note](#closing-note)
 
 ---
 
@@ -450,6 +452,13 @@ By **constraining** the system, we make it:
 - ✅ Auditable by default
 - ✅ Predictable in production
 
+Context Broker draws inspiration from:
+
+- **ALCOA principles** from pharmaceutical quality control
+- **Event sourcing** patterns from distributed systems
+- **Zero-knowledge architecture** from privacy engineering
+- **Time-series database design** from observability systems
+
 ---
 
 ## Community
@@ -470,11 +479,7 @@ See [`LICENSE`](LICENSE) for full terms.
 
 ## Acknowledgments
 
-Context Broker draws inspiration from:
-- **ALCOA principles** from pharmaceutical quality control
-- **Event sourcing** patterns from distributed systems
-- **Zero-knowledge architecture** from privacy engineering
-- **Time-series database design** from observability systems
+This project was developed with a combination of original ideas, hands‑on coding, and support from advanced AI systems. I would like to acknowledge **Microsoft Copilot**, **Anthropic Claude**, and **OpenAI ChatGPT** for their meaningful assistance in refining concepts, improving clarity, and strengthening the overall quality of this work.
 
 ---
 
