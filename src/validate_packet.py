@@ -58,6 +58,9 @@ class ValidationResult:
 
 _DURATION_RE = re.compile(r"^\s*(\d+)\s*([smhd])\s*$", re.IGNORECASE)
 
+MAX_PACKET_BYTES = 1_048_576  # 1 MB
+MAX_TTL = timedelta(days=365)
+
 
 def parse_duration(duration: str, label: str = "ttl") -> timedelta:
     """
@@ -111,6 +114,12 @@ def parse_rfc3339(dt_str: str) -> datetime:
 
 def load_json(path: Path) -> Dict[str, Any]:
     try:
+        size = path.stat().st_size
+    except OSError as e:
+        raise RuntimeError(f"failed to read packet file: {e}") from e
+    if size > MAX_PACKET_BYTES:
+        raise RuntimeError(f"packet file exceeds maximum size ({MAX_PACKET_BYTES} bytes)")
+    try:
         with path.open("r", encoding="utf-8") as handle:
             data = json.load(handle)
     except OSError as e:
@@ -143,7 +152,6 @@ def load_schema(path: Path) -> Dict[str, Any]:
 
 def validate_packet(
     packet: Dict[str, Any],
-    schema: Dict[str, Any],
     *,
     validator: Draft7Validator,
     now_utc: datetime,
@@ -155,7 +163,6 @@ def validate_packet(
     
     Args:
         packet: The context packet to validate
-        schema: JSON Schema dict (kept for backward compatibility; validator already contains schema)
         validator: Draft7Validator instance initialized with the schema
         now_utc: Current UTC time for expiration checks
         clock_skew: Allowed clock skew tolerance for time comparisons
@@ -163,11 +170,6 @@ def validate_packet(
     
     Returns:
         ValidationResult with ok status and any issues found
-    
-    Note:
-        The `schema` parameter is retained for backward compatibility with existing callers.
-        The validator parameter already contains the schema, so this parameter is not used
-        internally. Callers should pass the same schema used to create the validator.
     """
     issues: list[ValidationIssue] = []
     
@@ -220,7 +222,17 @@ def validate_packet(
             expires_at = None
 
         # Only proceed if all parsed
-        if created_at and ttl_td and expires_at:
+        if created_at is not None and ttl_td is not None and expires_at is not None:
+            # 2a-pre) TTL must not exceed maximum
+            if ttl_td > MAX_TTL:
+                issues.append(
+                    ValidationIssue(
+                        code="TTL_TOO_LONG",
+                        message=f"ttl exceeds maximum allowed duration ({MAX_TTL})",
+                        path="ttl",
+                    )
+                )
+
             # 2a) expires_at must equal created_at + ttl (within skew)
             expected = created_at + ttl_td
             delta = abs((expires_at - expected).total_seconds())
@@ -320,7 +332,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         clock_skew = parse_duration(args.clock_skew, "clock-skew")
         allow_future = parse_duration(args.allow_future_created_at, "allow-future-created-at")
     except Exception as e:
-        print(json.dumps({"ok": False, "issues": [{"code": "ARG_INVALID", "message": str(e), "path": ""}]}))
+        print(json.dumps({"ok": False, "issues": [{"code": "ARG_INVALID", "message": str(e), "path": ""}]}, indent=2))
         return 2
 
     try:
@@ -336,7 +348,6 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     result = validate_packet(
         packet,
-        schema,
         validator=validator,
         now_utc=now_utc,
         clock_skew=clock_skew,

@@ -7,14 +7,14 @@ type: software
 authors:
   - family-names: Feeney
     given-names: Don Michael
-version: 1.2.0
-date-released: 2026-02-08
+version: 1.4.0
+date-released: 2026-03-05
 abstract: >
   A lightweight, self-contained packet validation utility providing
   schema and time-based validation without external runtime dependencies.
   Designed for performance, portability, and use in constrained CI or
   offline environments.
-license: MIT
+license: LicenseRef-NonCommercial
 repository-code: https://github.com/dfeen87/Context-Broker
 keywords:
   - packet-validation

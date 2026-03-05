@@ -33,7 +33,7 @@ jobs:
 
       - name: API smoke test (packet validation)
         run: |
-          python - <<'PY'
+          PACKET_PATH=$(python - <<'PY'
           import json
           import tempfile
           from datetime import datetime, timedelta, timezone
@@ -56,4 +56,5 @@ jobs:
           tmp.write_text(json.dumps(packet), encoding="utf-8")
           print(tmp)
           PY
-          python src/validate_packet.py /tmp/ci_packet.json --schema schemas/context_packet.schema.v1.0.0.json --output text
+          )
+          python src/validate_packet.py "$PACKET_PATH" --schema schemas/context_packet.schema.v1.0.0.json --output text

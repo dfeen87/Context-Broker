@@ -235,7 +235,7 @@ When contributing, keep these core principles in mind:
 
 ## License
 
-By contributing to Context Broker, you agree that your contributions will be licensed under the MIT License.
+By contributing to Context Broker, you agree that your contributions will be licensed under the terms of the included LICENSE file.
 
 ---
 

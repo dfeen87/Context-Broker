@@ -29,26 +29,36 @@
 
     "context_id": {
       "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
       "description": "Unique identifier for this context packet. (ALCOA: Attributable)"
     },
 
     "intent": {
       "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
       "description": "Declared purpose for which this context was promoted. Must be explicit and human-intended."
     },
 
     "scope": {
       "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
       "description": "Logical boundary for this context (project, task, or session). Prevents cross-contamination. (ALCOA: Accurate)"
     },
 
     "source": {
       "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
       "description": "Originating device or application that produced the context. (ALCOA: Attributable)"
     },
 
     "actor": {
       "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
       "description": "Human or system responsible for promoting this context. No anonymous promotion allowed. (ALCOA: Attributable)"
     },
 
@@ -66,6 +76,7 @@
 
     "ttl": {
       "type": "string",
+      "pattern": "^[1-9][0-9]*[smhdSMHD]$",
       "description": "Time-to-live duration (e.g., '30m', '2h'). Context without TTL is invalid."
     },
 
