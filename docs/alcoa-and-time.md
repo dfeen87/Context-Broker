@@ -359,7 +359,8 @@ See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for details.
 
 ## License
 
-MIT
+This project is available for non-commercial use only under the terms of the included LICENSE file.
+Commercial use requires a separate paid license.
 
 ---
 

@@ -148,7 +148,18 @@ func main() {
 		fail("TIME_EXPIRED", "context packet expired")
 	}
 
-	fmt.Println(`{"ok":true}`)
+	sv, _ := packet["schema_version"].(string)
+	successOut := map[string]any{
+		"ok":             true,
+		"schema_version": sv,
+		"issues":         []map[string]string{},
+	}
+	b, marshalErr := json.MarshalIndent(successOut, "", "  ")
+	if marshalErr != nil {
+		fmt.Println(`{"ok":true}`)
+	} else {
+		fmt.Println(string(b))
+	}
 	os.Exit(0)
 }
 
@@ -159,9 +170,9 @@ func fail(code string, err any) {
 			{"code": code, "message": fmt.Sprint(err)},
 		},
 	}
-	b, err := json.MarshalIndent(out, "", "  ")
-	if err != nil {
-		fmt.Printf("{\"ok\":false,\"issues\":[{\"code\":\"%s\",\"message\":\"failed to serialize error response: %s\"}]}\n", code, err)
+	b, marshalErr := json.MarshalIndent(out, "", "  ")
+	if marshalErr != nil {
+		fmt.Printf("{\"ok\":false,\"issues\":[{\"code\":\"%s\",\"message\":\"failed to serialize error response: %s\"}]}\n", code, marshalErr)
 		os.Exit(1)
 	}
 	fmt.Println(string(b))
