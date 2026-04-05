@@ -2,6 +2,18 @@
 
 All notable changes to Context Broker are documented in this file.
 
+## [1.4.1] — 2026-04-05
+
+### Fixed
+- Example valid packet: update `created_at`/`ttl`/`expires_at` so the packet is not expired at install time (was 2024-01-01 with 2h TTL; now 2026-04-05 with 365d TTL)
+- CONTRIBUTING: fix incorrect test filename reference (`tests/test_validator.py` → `tests/test_validate_packet.py`)
+
+### Changed
+- README: clarify intro description ("non-commercial-licensed" → "non-commercial")
+- README: fix TOC entry "Acknowledgements" → "Acknowledgments" to match section header
+- README: fix TOC entry "Closing note" → "Closing Note" to match section header
+- CITATION.cff: update version and date-released to 1.4.1 / 2026-04-05
+
 ## [1.4.0] — 2026-03-05
 
 ### Security
