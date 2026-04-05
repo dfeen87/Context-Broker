@@ -7,8 +7,8 @@ type: software
 authors:
   - family-names: Feeney
     given-names: Don Michael
-version: 1.4.0
-date-released: 2026-03-05
+version: 1.4.1
+date-released: 2026-04-05
 abstract: >
   A lightweight, self-contained packet validation utility providing
   schema and time-based validation without external runtime dependencies.

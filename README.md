@@ -3,7 +3,7 @@
 [![CI](https://github.com/dfeen87/Context-Broker/actions/workflows/ci.yml/badge.svg)](https://github.com/dfeen87/Context-Broker/actions/workflows/ci.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 
-**Context Broker** is a minimal, non-commercial-licensed reference implementation for mediating context safely between devices, applications, and AI systems.
+**Context Broker** is a minimal, non-commercial reference implementation for mediating context safely between devices, applications, and AI systems.
 
 It treats context as a **time-bound, attributable artifact**, not an ambient data stream.
 
@@ -26,8 +26,8 @@ It treats context as a **time-bound, attributable artifact**, not an ambient dat
 - [Philosophy](#philosophy)
 - [Community](#community)
 - [License](#license)
-- [Acknowledgements](#acknowledgements)
-- [Closing note](#closing-note)
+- [Acknowledgments](#acknowledgments)
+- [Closing Note](#closing-note)
 
 ---
 

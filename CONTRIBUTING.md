@@ -185,7 +185,7 @@ def parse_duration(duration: str, label: str = "ttl") -> timedelta:
 python -m unittest discover -s tests
 
 # Run specific test file
-python -m unittest tests/test_validator.py
+python -m unittest tests/test_validate_packet.py
 ```
 
 ### Writing Tests
