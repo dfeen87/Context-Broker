@@ -9,7 +9,7 @@ All notable changes to Context Broker are documented in this file.
 - CONTRIBUTING: fix incorrect test filename reference (`tests/test_validator.py` → `tests/test_validate_packet.py`)
 
 ### Changed
-- README: clarify intro description ("non-commercial-licensed" → "non-commercial")
+- README: clarify intro description ("non-commercial-licensed" → "MIT-licensed open-source")
 - README: fix TOC entry "Acknowledgements" → "Acknowledgments" to match section header
 - README: fix TOC entry "Closing note" → "Closing Note" to match section header
 - CITATION.cff: update version and date-released to 1.4.1 / 2026-04-05

@@ -3,7 +3,7 @@
 [![CI](https://github.com/dfeen87/Context-Broker/actions/workflows/ci.yml/badge.svg)](https://github.com/dfeen87/Context-Broker/actions/workflows/ci.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 
-**Context Broker** is a minimal, non-commercial reference implementation for mediating context safely between devices, applications, and AI systems.
+**Context Broker** is a minimal, MIT-licensed open-source reference implementation for mediating context safely between devices, applications, and AI systems.
 
 It treats context as a **time-bound, attributable artifact**, not an ambient data stream.
 
@@ -39,7 +39,7 @@ Modern AI workflows are fragmented across:
 - 💻 **IDEs** (VS Code, Cursor, JetBrains)
 - 📱 **Mobile devices** (iOS, Android)
 - 🔧 **Internal tools** (Slack, Notion, custom dashboards)
-- 🤖 **Multiple AI systems** (proprietary and open-source)
+- 🤖 **Multiple AI systems** (closed-source and open-source)
 
 **Context is constantly:**
 - ❌ Lost during transitions
@@ -470,14 +470,18 @@ Context Broker draws inspiration from:
 
 ## License
 
-This project is available for **non‑commercial use only** under the terms of the included LICENSE file.  
-Commercial use requires a separate paid license.
+This project is fully open-source under the **MIT License**. See [LICENSE](LICENSE) for details.
 
 ---
 
 ## Acknowledgments
 
 This project was developed with a combination of original ideas, hands‑on coding, and support from advanced AI systems. I would like to acknowledge **Microsoft Copilot**, **Anthropic Claude**, and **OpenAI ChatGPT** for their meaningful assistance in refining concepts, improving clarity, and strengthening the overall quality of this work.
+
+---
+
+## Enterprise Consulting & Integration
+This architecture is fully open-source under the MIT License. If your organization requires custom scaling, proprietary integration, or dedicated technical consulting to deploy these models at an enterprise level, please reach out at: dfeen87@gmail.com
 
 ---
 
