@@ -14,7 +14,7 @@ abstract: >
   schema and time-based validation without external runtime dependencies.
   Designed for performance, portability, and use in constrained CI or
   offline environments.
-license: LicenseRef-NonCommercial
+license: MIT
 repository-code: https://github.com/dfeen87/Context-Broker
 keywords:
   - packet-validation

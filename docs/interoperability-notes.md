@@ -13,7 +13,7 @@ This document explains how Context Broker fits into broader interoperability eff
 Modern AI systems operate in fragmented environments:
 
 - **Multiple AI models** with incompatible interfaces (GPT-4, Claude, Gemini, LLaMA, etc.)
-- **Mixtures of proprietary and open-source systems** with different access patterns
+- **Mixtures of closed-source and open-source systems** with different access patterns
 - **Strict security, privacy, and sovereignty constraints** (GDPR, HIPAA, SOC2, air-gapped deployments)
 - **Cross-device and cross-application workflows** (desktop ↔ mobile ↔ web ↔ IDE)
 
