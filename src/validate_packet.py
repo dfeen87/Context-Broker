@@ -339,6 +339,12 @@ def main(argv: Optional[list[str]] = None) -> int:
     )
     parser.add_argument("packet", type=str, help="Path to a context packet JSON file.")
     parser.add_argument(
+        "--schema",
+        type=str,
+        default=None,
+        help="Path to a specific JSON Schema file. Overrides --schemas-dir.",
+    )
+    parser.add_argument(
         "--schemas-dir",
         type=str,
         default="schemas",
@@ -391,11 +397,18 @@ def main(argv: Optional[list[str]] = None) -> int:
         print(json.dumps(out, indent=2))
         return 1
 
-    schema_path = schemas_dir / f"context_packet.schema.v{schema_version}.json"
-    if not schema_path.exists():
-        out = {"ok": False, "schema_version": schema_version, "issues": [{"code": "UNSUPPORTED_SCHEMA_VERSION", "message": f"Unsupported schema version: {schema_version}", "path": "schema_version"}]}
-        print(json.dumps(out, indent=2))
-        return 1
+    if args.schema:
+        schema_path = Path(args.schema)
+        if not schema_path.exists():
+            out = {"ok": False, "schema_version": schema_version, "issues": [{"code": "SCHEMA_FILE_NOT_FOUND", "message": f"Schema file not found: {schema_path}", "path": ""}]}
+            print(json.dumps(out, indent=2))
+            return 2
+    else:
+        schema_path = schemas_dir / f"context_packet.schema.v{schema_version}.json"
+        if not schema_path.exists():
+            out = {"ok": False, "schema_version": schema_version, "issues": [{"code": "UNSUPPORTED_SCHEMA_VERSION", "message": f"Unsupported schema version: {schema_version}", "path": "schema_version"}]}
+            print(json.dumps(out, indent=2))
+            return 1
 
     try:
         schema = load_schema(schema_path)
