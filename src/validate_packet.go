@@ -18,6 +18,8 @@ import (
 
 var ttlRe = regexp.MustCompile(`^\s*(\d+)\s*([smhd])\s*$`)
 
+const maxTTL = 365 * 24 * time.Hour
+
 func parseDuration(s string, label string) (time.Duration, error) {
 	trimmed := strings.TrimSpace(strings.ToLower(s))
 	m := ttlRe.FindStringSubmatch(trimmed)
@@ -73,73 +75,76 @@ func main() {
 
 	packetBytes, err := os.ReadFile(*packetPath)
 	if err != nil {
-		fail("PACKET_READ_ERROR", err)
+		failTooling("PACKET_READ_ERROR", err)
 	}
 
 	var packet map[string]any
 	if err := json.Unmarshal(packetBytes, &packet); err != nil {
-		fail("PACKET_PARSE_ERROR", err)
+		failTooling("PACKET_PARSE_ERROR", err)
 	}
 
 	sv, ok := packet["schema_version"].(string)
 	if !ok || strings.TrimSpace(sv) == "" {
-		fail("UNSUPPORTED_SCHEMA_VERSION", "Missing or invalid schema_version")
+		failValidation("UNSUPPORTED_SCHEMA_VERSION", "Missing or invalid schema_version")
 	}
 
 	schemaPath := fmt.Sprintf("%s/context_packet.schema.v%s.json", *schemasDir, sv)
 	if _, err := os.Stat(schemaPath); os.IsNotExist(err) {
-		fail("UNSUPPORTED_SCHEMA_VERSION", fmt.Sprintf("Unsupported schema version: %s", sv))
+		failValidation("UNSUPPORTED_SCHEMA_VERSION", fmt.Sprintf("Unsupported schema version: %s", sv))
 	}
 
 	schemaCompiler := jsonschema.NewCompiler()
 	schemaFile, err := os.Open(schemaPath)
 	if err != nil {
-		fail("SCHEMA_LOAD_ERROR", err)
+		failTooling("SCHEMA_LOAD_ERROR", err)
 	}
 	defer schemaFile.Close()
 
 	if err := schemaCompiler.AddResource("schema.json", schemaFile); err != nil {
-		fail("SCHEMA_LOAD_ERROR", err)
+		failTooling("SCHEMA_LOAD_ERROR", err)
 	}
 
 	schema, err := schemaCompiler.Compile("schema.json")
 	if err != nil {
-		fail("SCHEMA_COMPILE_ERROR", err)
+		failTooling("SCHEMA_COMPILE_ERROR", err)
 	}
 
 	if err := schema.Validate(packet); err != nil {
-		fail("SCHEMA_VIOLATION", err)
+		failValidation("SCHEMA_VIOLATION", err)
 	}
 
 	if err := verifyIntegrity(packet); err != nil {
-		fail("INTEGRITY_FAILURE", err)
+		failValidation("INTEGRITY_FAILURE", err)
 	}
 
 	createdAtStr, ok := packet["created_at"].(string)
 	if !ok {
-		fail("TIME_INVALID_CREATED_AT", "created_at must be a string")
+		failValidation("TIME_INVALID_CREATED_AT", "created_at must be a string")
 	}
 	createdAt, err := time.Parse(time.RFC3339Nano, createdAtStr)
 	if err != nil {
-		fail("TIME_INVALID_CREATED_AT", err)
+		failValidation("TIME_INVALID_CREATED_AT", err)
 	}
 
 	expiresAtStr, ok := packet["expires_at"].(string)
 	if !ok {
-		fail("TIME_INVALID_EXPIRES_AT", "expires_at must be a string")
+		failValidation("TIME_INVALID_EXPIRES_AT", "expires_at must be a string")
 	}
 	expiresAt, err := time.Parse(time.RFC3339Nano, expiresAtStr)
 	if err != nil {
-		fail("TIME_INVALID_EXPIRES_AT", err)
+		failValidation("TIME_INVALID_EXPIRES_AT", err)
 	}
 
 	ttlStr, ok := packet["ttl"].(string)
 	if !ok {
-		fail("TIME_INVALID_TTL", "ttl must be a string")
+		failValidation("TIME_INVALID_TTL", "ttl must be a string")
 	}
 	ttl, err := parseDuration(ttlStr, "ttl")
 	if err != nil {
-		fail("TIME_INVALID_TTL", err)
+		failValidation("TIME_INVALID_TTL", err)
+	}
+	if ttl > maxTTL {
+		failValidation("TTL_TOO_LONG", fmt.Sprintf("ttl exceeds maximum allowed duration (%v)", maxTTL))
 	}
 
 	expected := createdAt.Add(ttl)
@@ -152,16 +157,16 @@ func main() {
 		tolerance = time.Second
 	}
 	if diff > tolerance {
-		fail("TIME_MISMATCH", "expires_at != created_at + ttl")
+		failValidation("TIME_MISMATCH", "expires_at != created_at + ttl")
 	}
 
 	now := time.Now().UTC()
 	if createdAt.Sub(now) > allowFuture {
-		fail("TIME_CREATED_AT_IN_FUTURE", "created_at is too far in the future")
+		failValidation("TIME_CREATED_AT_IN_FUTURE", "created_at is too far in the future")
 	}
 
 	if now.Sub(expiresAt) > clockSkew {
-		fail("TIME_EXPIRED", "context packet expired")
+		failValidation("TIME_EXPIRED", "context packet expired")
 	}
 
 	successOut := map[string]any{
@@ -220,7 +225,17 @@ func verifyIntegrity(packet map[string]any) error {
 	return nil
 }
 
-func fail(code string, err any) {
+func failValidation(code string, err any) {
+	emitFailure(code, err)
+	os.Exit(1)
+}
+
+func failTooling(code string, err any) {
+	emitFailure(code, err)
+	os.Exit(2)
+}
+
+func emitFailure(code string, err any) {
 	out := map[string]any{
 		"ok": false,
 		"issues": []map[string]string{
@@ -230,8 +245,7 @@ func fail(code string, err any) {
 	b, marshalErr := json.MarshalIndent(out, "", "  ")
 	if marshalErr != nil {
 		fmt.Printf("{\"ok\":false,\"issues\":[{\"code\":\"%s\",\"message\":\"failed to serialize error response: %s\"}]}\n", code, marshalErr)
-		os.Exit(1)
+		return
 	}
 	fmt.Println(string(b))
-	os.Exit(1)
 }
