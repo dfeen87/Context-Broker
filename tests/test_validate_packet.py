@@ -208,6 +208,40 @@ class TestFutureCreatedAt(unittest.TestCase):
         codes = [i.code for i in result.issues]
         self.assertIn("TIME_CREATED_AT_IN_FUTURE", codes)
 
+    def test_future_created_at_within_grace_period(self):
+        future = _now_utc() + timedelta(seconds=20)
+        packet = _make_packet(
+            created_at=future.isoformat().replace("+00:00", "Z"),
+            expires_at=(future + timedelta(hours=1)).isoformat().replace("+00:00", "Z"),
+        )
+        # We simulate a 30s allowed grace period (allow_future_created_at) by manually validating
+        validator = _make_validator()
+        result = validate_packet(
+            packet,
+            validator=validator,
+            now_utc=_now_utc(),
+            clock_skew=timedelta(seconds=60),
+            allow_future_created_at=timedelta(seconds=30),
+        )
+        self.assertTrue(result.ok)
+
+
+class TestTtlFuzzing(unittest.TestCase):
+    def test_ttl_fuzzing_non_deterministic(self):
+        # Strings like "infinite", "none", "0" should be rejected during validation or parsing
+        bad_ttls = ["infinite", "none", "0", "0s", "-5m", "10x"]
+        now = _now_utc()
+        for bad_ttl in bad_ttls:
+            packet = _make_packet(
+                ttl=bad_ttl,
+                expires_at=(now + timedelta(hours=1)).isoformat().replace("+00:00", "Z")
+            )
+            result = _validate(packet)
+            codes = [i.code for i in result.issues]
+            # Depending on if it's caught by schema or python code, it could be TIME_INVALID_TTL or SCHEMA_VIOLATION
+            self.assertTrue(any(c in codes for c in ["TIME_INVALID_TTL", "SCHEMA_VIOLATION"]))
+            self.assertFalse(result.ok)
+
 
 class TestTtlTooLong(unittest.TestCase):
     def test_ttl_exceeds_max(self):
@@ -267,6 +301,48 @@ class TestFileSizeGuard(unittest.TestCase):
             self.assertEqual(loaded["context_id"], packet["context_id"])
         finally:
             tmp_path.unlink(missing_ok=True)
+
+
+class TestCryptographicIntegrity(unittest.TestCase):
+    def test_signature_mismatch(self):
+        import base64
+        from cryptography.hazmat.primitives.asymmetric import ed25519
+        from cryptography.hazmat.primitives import serialization
+
+        packet = _make_packet()
+        packet["schema_version"] = "1.5.0"
+
+        canonical_json = json.dumps(packet, separators=(",", ":"), sort_keys=True).encode("utf-8")
+
+        private_key = ed25519.Ed25519PrivateKey.generate()
+        public_key = private_key.public_key()
+        signature = private_key.sign(canonical_json)
+
+        packet["signature"] = base64.b64encode(signature).decode('utf-8')
+        packet["public_key_id"] = base64.b64encode(public_key.public_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PublicFormat.Raw
+        )).decode('utf-8')
+
+        # Tamper with the packet structure but keep signature valid for original data
+        packet["payload"]["message"] = "tampered"
+
+        # We need to validate using 1.5.0 schema for the crypto fields to not trigger schema validation failures
+        schema_path_150 = Path(__file__).resolve().parent.parent / "schemas" / "context_packet.schema.v1.5.0.json"
+        with schema_path_150.open("r", encoding="utf-8") as f:
+            schema = json.load(f)
+        validator = Draft7Validator(schema, format_checker=_FORMAT_CHECKER)
+
+        result = validate_packet(
+            packet,
+            validator=validator,
+            now_utc=_now_utc(),
+            clock_skew=timedelta(seconds=60),
+            allow_future_created_at=timedelta(minutes=5),
+        )
+        codes = [i.code for i in result.issues]
+        self.assertIn("INTEGRITY_FAILURE", codes)
+        self.assertFalse(result.ok)
 
 
 if __name__ == "__main__":

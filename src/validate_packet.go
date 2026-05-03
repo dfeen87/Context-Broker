@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/ed25519"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -47,7 +49,7 @@ func parseDuration(s string, label string) (time.Duration, error) {
 
 func main() {
 	packetPath := flag.String("packet", "", "Path to packet JSON")
-	schemaPath := flag.String("schema", "schemas/context_packet.schema.v1.0.0.json", "Path to schema")
+	schemasDir := flag.String("schemas-dir", "schemas", "Path to directory containing JSON Schema files")
 	clockSkewStr := flag.String("clock-skew", "60s", "Allowed clock skew tolerance (e.g., 60s, 5m)")
 	allowFutureStr := flag.String("allow-future-created-at", "5m", "Allowed future offset for created_at")
 	flag.Parse()
@@ -69,8 +71,28 @@ func main() {
 		os.Exit(2)
 	}
 
+	packetBytes, err := os.ReadFile(*packetPath)
+	if err != nil {
+		fail("PACKET_READ_ERROR", err)
+	}
+
+	var packet map[string]any
+	if err := json.Unmarshal(packetBytes, &packet); err != nil {
+		fail("PACKET_PARSE_ERROR", err)
+	}
+
+	sv, ok := packet["schema_version"].(string)
+	if !ok || strings.TrimSpace(sv) == "" {
+		fail("UNSUPPORTED_SCHEMA_VERSION", "Missing or invalid schema_version")
+	}
+
+	schemaPath := fmt.Sprintf("%s/context_packet.schema.v%s.json", *schemasDir, sv)
+	if _, err := os.Stat(schemaPath); os.IsNotExist(err) {
+		fail("UNSUPPORTED_SCHEMA_VERSION", fmt.Sprintf("Unsupported schema version: %s", sv))
+	}
+
 	schemaCompiler := jsonschema.NewCompiler()
-	schemaFile, err := os.Open(*schemaPath)
+	schemaFile, err := os.Open(schemaPath)
 	if err != nil {
 		fail("SCHEMA_LOAD_ERROR", err)
 	}
@@ -85,18 +107,12 @@ func main() {
 		fail("SCHEMA_COMPILE_ERROR", err)
 	}
 
-	packetBytes, err := os.ReadFile(*packetPath)
-	if err != nil {
-		fail("PACKET_READ_ERROR", err)
-	}
-
-	var packet map[string]any
-	if err := json.Unmarshal(packetBytes, &packet); err != nil {
-		fail("PACKET_PARSE_ERROR", err)
-	}
-
 	if err := schema.Validate(packet); err != nil {
 		fail("SCHEMA_VIOLATION", err)
+	}
+
+	if err := verifyIntegrity(packet); err != nil {
+		fail("INTEGRITY_FAILURE", err)
 	}
 
 	createdAtStr, ok := packet["created_at"].(string)
@@ -148,7 +164,6 @@ func main() {
 		fail("TIME_EXPIRED", "context packet expired")
 	}
 
-	sv, _ := packet["schema_version"].(string)
 	successOut := map[string]any{
 		"ok":             true,
 		"schema_version": sv,
@@ -161,6 +176,48 @@ func main() {
 		fmt.Println(string(b))
 	}
 	os.Exit(0)
+}
+
+func verifyIntegrity(packet map[string]any) error {
+	sigStr, hasSig := packet["signature"].(string)
+	pubStr, hasPub := packet["public_key_id"].(string)
+
+	if !hasSig && !hasPub {
+		return nil
+	}
+	if hasSig != hasPub {
+		return errors.New("both signature and public_key_id must be provided together or omitted")
+	}
+
+	sigBytes, err := base64.StdEncoding.DecodeString(sigStr)
+	if err != nil {
+		return fmt.Errorf("failed to decode signature: %v", err)
+	}
+	pubBytes, err := base64.StdEncoding.DecodeString(pubStr)
+	if err != nil {
+		return fmt.Errorf("failed to decode public_key_id: %v", err)
+	}
+	if len(pubBytes) != ed25519.PublicKeySize {
+		return errors.New("invalid ed25519 public key size")
+	}
+
+	canonicalPacket := make(map[string]any)
+	for k, v := range packet {
+		if k != "signature" && k != "public_key_id" {
+			canonicalPacket[k] = v
+		}
+	}
+
+	canonicalBytes, err := json.Marshal(canonicalPacket)
+	if err != nil {
+		return fmt.Errorf("failed to canonicalize packet: %v", err)
+	}
+
+	if !ed25519.Verify(ed25519.PublicKey(pubBytes), canonicalBytes, sigBytes) {
+		return errors.New("signature verification failed")
+	}
+
+	return nil
 }
 
 func fail(code string, err any) {
