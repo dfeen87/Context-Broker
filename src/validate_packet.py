@@ -16,11 +16,14 @@ import json
 import logging
 import re
 import sys
+import base64
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
+from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.primitives.asymmetric import ed25519
 from jsonschema import Draft7Validator, FormatChecker
 
 
@@ -148,6 +151,42 @@ def load_schema(path: Path) -> Dict[str, Any]:
     return schema
 
 
+def verify_integrity(packet: Dict[str, Any]) -> Optional[ValidationIssue]:
+    signature_b64 = packet.get("signature")
+    public_key_id_b64 = packet.get("public_key_id")
+
+    if not signature_b64 and not public_key_id_b64:
+        return None
+
+    if bool(signature_b64) != bool(public_key_id_b64):
+        return ValidationIssue(
+            code="INTEGRITY_FAILURE",
+            message="Both signature and public_key_id must be provided together or omitted",
+        )
+
+    try:
+        signature_bytes = base64.b64decode(signature_b64)
+        public_key_bytes = base64.b64decode(public_key_id_b64)
+        public_key = ed25519.Ed25519PublicKey.from_public_bytes(public_key_bytes)
+    except Exception as e:
+        return ValidationIssue(code="INTEGRITY_FAILURE", message=f"Failed to parse signature/public_key_id: {e}")
+
+    canonical_packet = {k: v for k, v in packet.items() if k not in ("signature", "public_key_id")}
+    try:
+        canonical_json = json.dumps(canonical_packet, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    except Exception as e:
+        return ValidationIssue(code="INTEGRITY_FAILURE", message=f"Failed to canonicalize packet: {e}")
+
+    try:
+        public_key.verify(signature_bytes, canonical_json)
+    except InvalidSignature:
+        return ValidationIssue(code="INTEGRITY_FAILURE", message="Signature verification failed")
+    except Exception as e:
+        return ValidationIssue(code="INTEGRITY_FAILURE", message=f"Integrity check error: {e}")
+
+    return None
+
+
 # ---------- Core Validation ----------
 
 def validate_packet(
@@ -194,6 +233,10 @@ def validate_packet(
             )
         )
     
+    integrity_issue = verify_integrity(packet)
+    if integrity_issue:
+        issues.append(integrity_issue)
+
     schema_version = packet.get("schema_version") if isinstance(packet.get("schema_version"), str) else None
 
     # If schema errors exist, we still try some semantic checks only if required fields exist.
@@ -296,10 +339,10 @@ def main(argv: Optional[list[str]] = None) -> int:
     )
     parser.add_argument("packet", type=str, help="Path to a context packet JSON file.")
     parser.add_argument(
-        "--schema",
+        "--schemas-dir",
         type=str,
-        default=str(Path("schemas") / "context_packet.schema.v1.0.0.json"),
-        help="Path to the JSON Schema file (default: schemas/context_packet.schema.v1.0.0.json).",
+        default="schemas",
+        help="Path to the directory containing JSON Schema files (default: schemas).",
     )
     parser.add_argument(
         "--clock-skew",
@@ -326,7 +369,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     _configure_logging(args.verbose)
 
     packet_path = Path(args.packet)
-    schema_path = Path(args.schema)
+    schemas_dir = Path(args.schemas_dir)
 
     try:
         clock_skew = parse_duration(args.clock_skew, "clock-skew")
@@ -337,9 +380,27 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     try:
         packet = load_json(packet_path)
-        schema = load_schema(schema_path)
     except Exception as e:
         out = {"ok": False, "issues": [{"code": "IO_ERROR", "message": str(e), "path": ""}]}
+        print(json.dumps(out, indent=2))
+        return 2
+
+    schema_version = packet.get("schema_version")
+    if not isinstance(schema_version, str) or not schema_version.strip():
+        out = {"ok": False, "schema_version": None, "issues": [{"code": "UNSUPPORTED_SCHEMA_VERSION", "message": "Missing or invalid schema_version", "path": "schema_version"}]}
+        print(json.dumps(out, indent=2))
+        return 1
+
+    schema_path = schemas_dir / f"context_packet.schema.v{schema_version}.json"
+    if not schema_path.exists():
+        out = {"ok": False, "schema_version": schema_version, "issues": [{"code": "UNSUPPORTED_SCHEMA_VERSION", "message": f"Unsupported schema version: {schema_version}", "path": "schema_version"}]}
+        print(json.dumps(out, indent=2))
+        return 1
+
+    try:
+        schema = load_schema(schema_path)
+    except Exception as e:
+        out = {"ok": False, "schema_version": schema_version, "issues": [{"code": "IO_ERROR", "message": str(e), "path": ""}]}
         print(json.dumps(out, indent=2))
         return 2
 

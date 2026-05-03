@@ -150,7 +150,8 @@ Context-Broker/
 │   ├── validate_packet.py        # Python validator (reference)
 │   └── validate_packet.go        # Go validator
 ├── schemas/                      # JSON Schema definitions
-│   ├── context_packet.schema.v1.0.0.json  # Current schema
+│   ├── context_packet.schema.v1.5.0.json  # Current schema
+│   ├── context_packet.schema.v1.0.0.json  # Legacy schema
 │   └── context_packet.schema.v0.1.json    # Legacy schema
 ├── examples/                     # Sample context packets
 │   ├── packet.valid.json         # Valid packet example
@@ -389,7 +390,7 @@ from pathlib import Path
 
 now = datetime.now(timezone.utc)
 packet = {
-    "schema_version": "1.0.0",
+    "schema_version": "1.5.0",
     "context_id": "ctx_local_smoke",
     "intent": "ci_smoke",
     "scope": "ci",

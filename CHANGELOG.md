@@ -2,6 +2,14 @@
 
 All notable changes to Context Broker are documented in this file.
 
+## [1.5.0] - 2026-05-03
+
+### Added
+- Semantic Schema Registry to support multiple schema versions dynamically.
+- Cryptographic Provenance (Integrity) using Ed25519 signatures.
+- Delta-Packet & Persistence Logic to generate context deltas minimizing bandwidth overhead.
+- Extensive Edge-Case & Fuzz testing logic for time bounds and cryptographic aspects.
+
 ## [1.4.1] — 2026-04-05
 
 ### Fixed
