@@ -20,7 +20,7 @@ import base64
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric import ed25519
@@ -149,6 +149,45 @@ def load_schema(path: Path) -> Dict[str, Any]:
         raise RuntimeError("schema JSON must be an object")
 
     return schema
+
+
+class SchemaRegistry:
+    """
+    Discovers JSON Schema files in a directory and maps version strings to paths.
+
+    Schema files are expected to follow the naming convention:
+        context_packet.schema.v<version>.json
+    e.g. context_packet.schema.v1.0.0.json
+
+    The registry is built once at construction time by scanning the directory.
+    """
+
+    _FILENAME_RE = re.compile(r"^context_packet\.schema\.v(.+)\.json$")
+
+    def __init__(self, schemas_dir: Path) -> None:
+        self._schemas_dir = schemas_dir
+        self._registry: Dict[str, Path] = {}
+        self._build()
+
+    def _build(self) -> None:
+        if not self._schemas_dir.is_dir():
+            return
+        for entry in sorted(self._schemas_dir.iterdir()):
+            if not entry.is_file():
+                continue
+            m = self._FILENAME_RE.match(entry.name)
+            if m:
+                version = m.group(1)
+                self._registry[version] = entry
+
+    def resolve(self, version: str) -> Optional[Path]:
+        """Return the Path for *version*, or None if it is not registered."""
+        return self._registry.get(version)
+
+    @property
+    def available_versions(self) -> List[str]:
+        """Sorted list of all registered version strings."""
+        return sorted(self._registry.keys())
 
 
 def verify_integrity(packet: Dict[str, Any]) -> Optional[ValidationIssue]:
@@ -391,9 +430,12 @@ def main(argv: Optional[list[str]] = None) -> int:
         print(json.dumps(out, indent=2))
         return 1
 
-    schema_path = schemas_dir / f"context_packet.schema.v{schema_version}.json"
-    if not schema_path.exists():
-        out = {"ok": False, "schema_version": schema_version, "issues": [{"code": "UNSUPPORTED_SCHEMA_VERSION", "message": f"Unsupported schema version: {schema_version}", "path": "schema_version"}]}
+    registry = SchemaRegistry(schemas_dir)
+    schema_path = registry.resolve(schema_version)
+    if schema_path is None:
+        available = registry.available_versions
+        hint = f". Available: {available}" if available else ""
+        out = {"ok": False, "schema_version": schema_version, "issues": [{"code": "UNSUPPORTED_SCHEMA_VERSION", "message": f"Unsupported schema version: {schema_version}{hint}", "path": "schema_version"}]}
         print(json.dumps(out, indent=2))
         return 1
 
