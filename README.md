@@ -1,10 +1,10 @@
 # Context Broker
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-lightgrey.svg)](LICENSE)
 [![CI](https://github.com/dfeen87/Context-Broker/actions/workflows/ci.yml/badge.svg)](https://github.com/dfeen87/Context-Broker/actions/workflows/ci.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 
-**Context Broker** is a minimal, MIT-licensed open-source reference implementation for mediating context safely between devices, applications, and AI systems.
+**Context Broker** is a minimal reference implementation for mediating context safely between devices, applications, and AI systems, licensed under the PolyForm Noncommercial License 1.0.0.
 
 It treats context as a **time-bound, attributable artifact**, not an ambient data stream.
 
@@ -472,7 +472,17 @@ Context Broker draws inspiration from:
 
 ## License
 
-This project is fully open-source under the **MIT License**. See [LICENSE](LICENSE) for details.
+This project is licensed under the **PolyForm Noncommercial License 1.0.0**. See the [LICENSE](LICENSE) file for details.
+
+### Non-Commercial Terms Summary
+
+The PolyForm Noncommercial License 1.0.0 allows you to use, modify, and distribute this software freely for any **non-commercial** purpose.
+
+Permitted uses include:
+- **Personal use:** Hobby projects, learning, personal study, private entertainment, and testing without commercial intent.
+- **Non-commercial organizations:** Use by charitable organizations, educational institutions, public research organizations, public safety/health organizations, environmental protection organizations, and government institutions.
+
+Commercial use (e.g. for-profit business, client work, paid SaaS) is not permitted under this license.
 
 ---
 
@@ -483,7 +493,7 @@ This project was developed with a combination of original ideas, hands‑on codi
 ---
 
 ## Enterprise Consulting & Integration
-This architecture is fully open-source under the MIT License. If your organization requires custom scaling, proprietary integration, or dedicated technical consulting to deploy these models at an enterprise level, please reach out at: dfeen87@gmail.com
+This architecture is licensed under the PolyForm Noncommercial License 1.0.0. If your organization requires custom scaling, proprietary integration, a commercial license, or dedicated technical consulting to deploy these models at an enterprise level, please reach out at: dfeen87@gmail.com
 
 ---
 

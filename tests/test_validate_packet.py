@@ -1,5 +1,6 @@
 """
 Unit tests for validate_packet.py
+Licensed under the PolyForm Noncommercial License 1.0.0
 """
 import json
 import sys
