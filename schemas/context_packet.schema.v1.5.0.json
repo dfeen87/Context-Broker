@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://context-broker.dev/schemas/context_packet.schema.v1.5.0.json",
-  "$comment": "License: MIT",
+  "$comment": "Licensed under the PolyForm Noncommercial License 1.0.0",
 
   "title": "ContextPacket",
   "description": "A time-bound, attributable unit of context exchange governed by ALCOA principles.",
