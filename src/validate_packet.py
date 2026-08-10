@@ -2,7 +2,8 @@
 """
 Context Broker — Packet Validator (Reference)
 Production-hardened validator for ContextPacket v1.0.0
-Licensed under the PolyForm Noncommercial License 1.0.0
+Licensed under the MIT License
+Copyright (c) Don Michael Feeney Jr.
 
 - Validates JSON against the canonical schema
 - Enforces time constraints (created_at, ttl, expires_at)

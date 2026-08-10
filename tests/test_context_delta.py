@@ -1,6 +1,7 @@
 """
 Unit tests for context_delta.py
-Licensed under the PolyForm Noncommercial License 1.0.0
+Licensed under the MIT License
+Copyright (c) Don Michael Feeney Jr.
 """
 import sys
 import unittest

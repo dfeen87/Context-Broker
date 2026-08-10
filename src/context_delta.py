@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 Context Broker — Delta-Packet Logic
-Licensed under the PolyForm Noncommercial License 1.0.0
+Licensed under the MIT License
+Copyright (c) Don Michael Feeney Jr.
 """
 
 from typing import Any, Dict
