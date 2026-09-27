@@ -53,9 +53,9 @@ class TestGenerateDeltaBasic(unittest.TestCase):
 
     def test_schema_version_from_current_state(self):
         base = _make_base({"schema_version": "1.0.0"})
-        current = _make_base({"schema_version": "1.5.0"})
+        current = _make_base({"schema_version": "1.6.0"})
         delta = generate_delta(base, current)
-        self.assertEqual(delta["schema_version"], "1.5.0")
+        self.assertEqual(delta["schema_version"], "1.6.0")
 
     def test_schema_version_from_base_when_not_in_current(self):
         base = _make_base({"schema_version": "1.0.0"})
