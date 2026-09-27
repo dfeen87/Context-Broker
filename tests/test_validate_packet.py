@@ -21,6 +21,7 @@ from validate_packet import (
     parse_duration,
     parse_rfc3339,
     validate_packet,
+    verify_integrity,
 )
 
 from jsonschema import Draft7Validator, FormatChecker
@@ -306,6 +307,21 @@ class TestFileSizeGuard(unittest.TestCase):
 
 
 class TestCryptographicIntegrity(unittest.TestCase):
+    def test_empty_integrity_fields_are_rejected(self):
+        issue = verify_integrity({"signature": "", "public_key_id": ""})
+        self.assertIsNotNone(issue)
+        self.assertEqual(issue.code, "INTEGRITY_FAILURE")
+
+    def test_empty_unpaired_integrity_field_is_rejected(self):
+        issue = verify_integrity({"signature": ""})
+        self.assertIsNotNone(issue)
+        self.assertEqual(issue.code, "INTEGRITY_FAILURE")
+
+    def test_malformed_base64_is_rejected(self):
+        issue = verify_integrity({"signature": "!!!!", "public_key_id": "!!!!"})
+        self.assertIsNotNone(issue)
+        self.assertEqual(issue.code, "INTEGRITY_FAILURE")
+
     def test_signature_mismatch(self):
         import base64
         from cryptography.hazmat.primitives.asymmetric import ed25519

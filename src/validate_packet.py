@@ -14,11 +14,11 @@ Copyright (c) Don Michael Feeney Jr.
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import logging
 import re
 import sys
-import base64
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -154,21 +154,23 @@ def load_schema(path: Path) -> Dict[str, Any]:
 
 
 def verify_integrity(packet: Dict[str, Any]) -> Optional[ValidationIssue]:
-    signature_b64 = packet.get("signature")
-    public_key_id_b64 = packet.get("public_key_id")
+    has_signature = "signature" in packet
+    has_public_key = "public_key_id" in packet
 
-    if not signature_b64 and not public_key_id_b64:
+    if not has_signature and not has_public_key:
         return None
 
-    if bool(signature_b64) != bool(public_key_id_b64):
+    if has_signature != has_public_key:
         return ValidationIssue(
             code="INTEGRITY_FAILURE",
             message="Both signature and public_key_id must be provided together or omitted",
         )
 
+    signature_b64 = packet["signature"]
+    public_key_id_b64 = packet["public_key_id"]
     try:
-        signature_bytes = base64.b64decode(signature_b64)
-        public_key_bytes = base64.b64decode(public_key_id_b64)
+        signature_bytes = base64.b64decode(signature_b64, validate=True)
+        public_key_bytes = base64.b64decode(public_key_id_b64, validate=True)
         public_key = ed25519.Ed25519PublicKey.from_public_bytes(public_key_bytes)
     except Exception as e:
         return ValidationIssue(code="INTEGRITY_FAILURE", message=f"Failed to parse signature/public_key_id: {e}")
