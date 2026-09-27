@@ -2,6 +2,16 @@
 
 All notable changes to Context Broker are documented in this file.
 
+## [1.6.0] - 2026-05-03
+
+### Added
+- Created `schemas/context_packet.schema.v1.6.0.json` schema version 1.6.0.
+
+### Changed
+- Updated validator and context delta references to schema version 1.6.0.
+- Updated CITATION.cff version to 1.6.0 and date-released to 2026-05-03.
+- Updated README documentation and unit test suite for version 1.6.0.
+
 ## [1.5.0] - 2026-05-03
 
 ### Added

@@ -41,7 +41,7 @@ def generate_delta(base_packet: Dict[str, Any], current_state: Dict[str, Any]) -
         delta_packet["payload"] = copy.deepcopy(current_state["payload"])
     elif "payload" in base_packet:
         # Keep base payload if no change and it is required by schema,
-        # Schema v1.5.0 requires 'payload'.
+        # Schema v1.6.0 requires 'payload'.
         delta_packet["payload"] = copy.deepcopy(base_packet["payload"])
 
     if "permissions" in current_state and current_state["permissions"] != base_packet.get("permissions"):

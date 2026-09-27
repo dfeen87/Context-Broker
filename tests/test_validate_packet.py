@@ -26,7 +26,7 @@ from validate_packet import (
 
 from jsonschema import Draft7Validator, FormatChecker
 
-_SCHEMA_PATH = Path(__file__).resolve().parent.parent / "schemas" / "context_packet.schema.v1.0.0.json"
+_SCHEMA_PATH = Path(__file__).resolve().parent.parent / "schemas" / "context_packet.schema.v1.6.0.json"
 _FORMAT_CHECKER = FormatChecker()
 
 
@@ -47,7 +47,7 @@ def _now_utc():
 def _make_packet(**overrides):
     now = _now_utc()
     packet = {
-        "schema_version": "1.0.0",
+        "schema_version": "1.6.0",
         "context_id": "ctx_test_001",
         "intent": "testing",
         "scope": "unit-tests",
@@ -137,14 +137,14 @@ class TestValidPacket(unittest.TestCase):
 
     def test_schema_version_returned(self):
         result = _validate(_make_packet())
-        self.assertEqual(result.schema_version, "1.0.0")
+        self.assertEqual(result.schema_version, "1.6.0")
 
 
 class TestExpiredPacket(unittest.TestCase):
     def test_expired_packet_fails(self):
         past = datetime(2000, 1, 1, tzinfo=timezone.utc)
         packet = {
-            "schema_version": "1.0.0",
+            "schema_version": "1.6.0",
             "context_id": "ctx_expired",
             "intent": "testing",
             "scope": "unit-tests",
@@ -328,7 +328,7 @@ class TestCryptographicIntegrity(unittest.TestCase):
         from cryptography.hazmat.primitives import serialization
 
         packet = _make_packet()
-        packet["schema_version"] = "1.5.0"
+        packet["schema_version"] = "1.6.0"
 
         canonical_json = json.dumps(packet, separators=(",", ":"), sort_keys=True).encode("utf-8")
 
@@ -345,9 +345,9 @@ class TestCryptographicIntegrity(unittest.TestCase):
         # Tamper with the packet structure but keep signature valid for original data
         packet["payload"]["message"] = "tampered"
 
-        # We need to validate using 1.5.0 schema for the crypto fields to not trigger schema validation failures
-        schema_path_150 = Path(__file__).resolve().parent.parent / "schemas" / "context_packet.schema.v1.5.0.json"
-        with schema_path_150.open("r", encoding="utf-8") as f:
+        # We need to validate using 1.6.0 schema for the crypto fields to not trigger schema validation failures
+        schema_path_160 = Path(__file__).resolve().parent.parent / "schemas" / "context_packet.schema.v1.6.0.json"
+        with schema_path_160.open("r", encoding="utf-8") as f:
             schema = json.load(f)
         validator = Draft7Validator(schema, format_checker=_FORMAT_CHECKER)
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Context Broker — Packet Validator (Reference)
-Production-hardened validator for ContextPacket v1.0.0
+Production-hardened validator for ContextPacket v1.6.0
 Licensed under the MIT License
 Copyright (c) Don Michael Feeney Jr.
 
