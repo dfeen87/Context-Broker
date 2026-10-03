@@ -8,8 +8,8 @@ authors:
   - family-names: Feeney
     given-names: Don Michael
     name-suffix: Jr.
-version: 1.6.0
-date-released: 2026-05-03
+version: 2.0.0
+date-released: 2026-10-03
 abstract: >
   A lightweight, self-contained packet validation utility providing
   schema and time-based validation without external runtime dependencies.

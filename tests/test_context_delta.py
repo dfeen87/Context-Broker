@@ -20,7 +20,7 @@ def _now_utc():
 def _make_base(overrides=None):
     now = _now_utc()
     packet = {
-        "schema_version": "1.0.0",
+        "schema_version": "2.0.0",
         "context_id": "ctx_test_001",
         "intent": "testing",
         "scope": "unit-tests",
@@ -53,9 +53,9 @@ class TestGenerateDeltaBasic(unittest.TestCase):
 
     def test_schema_version_from_current_state(self):
         base = _make_base({"schema_version": "1.0.0"})
-        current = _make_base({"schema_version": "1.6.0"})
+        current = _make_base({"schema_version": "2.0.0"})
         delta = generate_delta(base, current)
-        self.assertEqual(delta["schema_version"], "1.6.0")
+        self.assertEqual(delta["schema_version"], "2.0.0")
 
     def test_schema_version_from_base_when_not_in_current(self):
         base = _make_base({"schema_version": "1.0.0"})
@@ -153,6 +153,36 @@ class TestGenerateDeltaDeepCopy(unittest.TestCase):
         delta = generate_delta(base, current)
         current["payload"]["data"].append(4)
         self.assertEqual(delta["payload"]["data"], [1, 2, 3])
+
+    def test_inherited_payload_is_deep_copied(self):
+        base = _make_base({"payload": {"data": [1, 2, 3]}})
+        current = _make_base()
+        del current["payload"]
+        delta = generate_delta(base, current)
+        base["payload"]["data"].append(4)
+        self.assertEqual(delta["payload"]["data"], [1, 2, 3])
+
+
+class TestGenerateDeltaFailureBoundary(unittest.TestCase):
+    def test_missing_context_ids_raise_value_error(self):
+        base = _make_base()
+        current = _make_base()
+        del base["context_id"]
+        del current["context_id"]
+        with self.assertRaisesRegex(ValueError, "context_id"):
+            generate_delta(base, current)
+
+    def test_missing_required_base_field_raises_value_error(self):
+        base = _make_base()
+        current = _make_base()
+        del base["actor"]
+        del current["actor"]
+        with self.assertRaisesRegex(ValueError, "actor"):
+            generate_delta(base, current)
+
+    def test_inputs_must_be_mappings(self):
+        with self.assertRaisesRegex(TypeError, "mapping"):
+            generate_delta([], {})
 
 
 if __name__ == "__main__":

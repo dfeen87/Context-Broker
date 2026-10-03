@@ -2,6 +2,33 @@
 
 All notable changes to Context Broker are documented in this file.
 
+## [2.0.0] - 2026-10-03
+
+### Security
+- Reject duplicate JSON object keys and non-standard numeric constants at the
+  Python trust boundary; reject duplicate keys and oversized packets in Go.
+- Fail closed when library callers provide naive clocks or negative tolerances.
+- Require paired integrity fields and non-empty, bounded permission and
+  integrity strings in the immutable v2.0.0 schema.
+
+### Fixed
+- Convert malformed delta inputs and missing required state into deterministic
+  exceptions rather than incidental `AttributeError` or `KeyError` failures.
+- Deep-copy the complete resolved delta candidate before returning it.
+- Make the expired-packet CI check capable of failing the workflow.
+
+### Added
+- Published `schemas/context_packet.schema.v2.0.0.json` while retaining all
+  earlier immutable schemas for compatibility.
+- Added Go module metadata and executable Go regression tests.
+- Added the BEDROCK 2.0 engineering report and explicit validation contract.
+
+### Changed
+- CI now requires the Python and Go test suites and compiles all Python source.
+- Version 2.0.0 is a strict-SemVer release: malformed JSON formerly accepted
+  by the Python loader, unsafe validation configuration, duplicate permissions,
+  and unpaired integrity fields are now rejected.
+
 ## [1.6.0] - 2026-05-03
 
 ### Added

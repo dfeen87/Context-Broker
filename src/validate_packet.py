@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Context Broker — Packet Validator (Reference)
-Production-hardened validator for ContextPacket v1.6.0
+Production-hardened validator for ContextPacket v2.0.0
 Licensed under the MIT License
 Copyright (c) Don Michael Feeney Jr.
 
@@ -17,6 +17,7 @@ import argparse
 import base64
 import json
 import logging
+import math
 import re
 import sys
 from dataclasses import dataclass
@@ -65,6 +66,47 @@ _DURATION_RE = re.compile(r"^\s*(\d+)\s*([smhd])\s*$", re.IGNORECASE)
 
 MAX_PACKET_BYTES = 1_048_576  # 1 MB
 MAX_TTL = timedelta(days=365)
+__version__ = "2.0.0"
+
+
+def _reject_json_constant(value: str) -> None:
+    raise ValueError(f"non-standard JSON constant is not allowed: {value}")
+
+
+def _unique_object(pairs: list[tuple[str, Any]]) -> Dict[str, Any]:
+    result: Dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate object key is not allowed: {key}")
+        result[key] = value
+    return result
+
+
+def _load_json_object(path: Path, label: str) -> Dict[str, Any]:
+    """Load one strict, size-bounded JSON object.
+
+    Python's standard decoder otherwise accepts NaN/Infinity and silently keeps
+    the last duplicate key. Both behaviors make signed or audited input
+    ambiguous across implementations, so trust-boundary files reject them.
+    """
+    try:
+        with path.open("rb") as handle:
+            raw = handle.read(MAX_PACKET_BYTES + 1)
+    except OSError as e:
+        raise RuntimeError(f"failed to read {label} file: {e}") from e
+    if len(raw) > MAX_PACKET_BYTES:
+        raise RuntimeError(f"{label} file exceeds maximum size ({MAX_PACKET_BYTES} bytes)")
+    try:
+        data = json.loads(
+            raw.decode("utf-8"),
+            parse_constant=_reject_json_constant,
+            object_pairs_hook=_unique_object,
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as e:
+        raise RuntimeError(f"invalid {label} JSON: {e}") from e
+    if not isinstance(data, dict):
+        raise RuntimeError(f"{label} JSON must be an object")
+    return data
 
 
 def parse_duration(duration: str, label: str = "ttl") -> timedelta:
@@ -118,39 +160,11 @@ def parse_rfc3339(dt_str: str) -> datetime:
 
 
 def load_json(path: Path) -> Dict[str, Any]:
-    try:
-        size = path.stat().st_size
-    except OSError as e:
-        raise RuntimeError(f"failed to read packet file: {e}") from e
-    if size > MAX_PACKET_BYTES:
-        raise RuntimeError(f"packet file exceeds maximum size ({MAX_PACKET_BYTES} bytes)")
-    try:
-        with path.open("r", encoding="utf-8") as handle:
-            data = json.load(handle)
-    except OSError as e:
-        raise RuntimeError(f"failed to read packet file: {e}") from e
-    except json.JSONDecodeError as e:
-        raise RuntimeError(f"invalid JSON: {e}") from e
-
-    if not isinstance(data, dict):
-        raise RuntimeError("packet JSON must be an object")
-
-    return data
+    return _load_json_object(path, "packet")
 
 
 def load_schema(path: Path) -> Dict[str, Any]:
-    try:
-        with path.open("r", encoding="utf-8") as handle:
-            schema = json.load(handle)
-    except OSError as e:
-        raise RuntimeError(f"failed to read schema file: {e}") from e
-    except json.JSONDecodeError as e:
-        raise RuntimeError(f"invalid schema JSON: {e}") from e
-
-    if not isinstance(schema, dict):
-        raise RuntimeError("schema JSON must be an object")
-
-    return schema
+    return _load_json_object(path, "schema")
 
 
 def verify_integrity(packet: Dict[str, Any]) -> Optional[ValidationIssue]:
@@ -177,7 +191,12 @@ def verify_integrity(packet: Dict[str, Any]) -> Optional[ValidationIssue]:
 
     canonical_packet = {k: v for k, v in packet.items() if k not in ("signature", "public_key_id")}
     try:
-        canonical_json = json.dumps(canonical_packet, separators=(",", ":"), sort_keys=True).encode("utf-8")
+        canonical_json = json.dumps(
+            canonical_packet,
+            separators=(",", ":"),
+            sort_keys=True,
+            allow_nan=False,
+        ).encode("utf-8")
     except Exception as e:
         return ValidationIssue(code="INTEGRITY_FAILURE", message=f"Failed to canonicalize packet: {e}")
 
@@ -215,6 +234,55 @@ def validate_packet(
         ValidationResult with ok status and any issues found
     """
     issues: list[ValidationIssue] = []
+    schema_version = packet.get("schema_version") if isinstance(packet, dict) and isinstance(packet.get("schema_version"), str) else None
+
+    if not isinstance(packet, dict):
+        return ValidationResult(
+            ok=False,
+            schema_version=None,
+            issues=(ValidationIssue("INPUT_INVALID", "packet must be an object"),),
+        )
+
+    def non_finite_path(value: Any, path: str = "") -> Optional[str]:
+        if isinstance(value, float) and not math.isfinite(value):
+            return path or "$"
+        if isinstance(value, dict):
+            for key, child in value.items():
+                found = non_finite_path(child, f"{path}.{key}" if path else str(key))
+                if found:
+                    return found
+        elif isinstance(value, list):
+            for index, child in enumerate(value):
+                found = non_finite_path(child, f"{path}.{index}" if path else str(index))
+                if found:
+                    return found
+        return None
+
+    invalid_number_path = non_finite_path(packet)
+    if invalid_number_path:
+        issues.append(
+            ValidationIssue(
+                "INPUT_INVALID",
+                "packet numbers must be finite JSON values",
+                invalid_number_path,
+            )
+        )
+    if not isinstance(now_utc, datetime):
+        issues.append(ValidationIssue("CONFIG_INVALID", "now_utc must be a datetime"))
+    elif now_utc.tzinfo is None or now_utc.utcoffset() is None:
+        issues.append(ValidationIssue("CONFIG_INVALID", "now_utc must be timezone-aware"))
+    if not isinstance(clock_skew, timedelta):
+        issues.append(ValidationIssue("CONFIG_INVALID", "clock_skew must be a timedelta"))
+    elif clock_skew < timedelta(0):
+        issues.append(ValidationIssue("CONFIG_INVALID", "clock_skew must not be negative"))
+    if not isinstance(allow_future_created_at, timedelta):
+        issues.append(
+            ValidationIssue("CONFIG_INVALID", "allow_future_created_at must be a timedelta")
+        )
+    elif allow_future_created_at < timedelta(0):
+        issues.append(ValidationIssue("CONFIG_INVALID", "allow_future_created_at must not be negative"))
+    if issues:
+        return ValidationResult(ok=False, schema_version=schema_version, issues=tuple(issues))
     
     # 1) Schema validation (structure, required fields, types, formats, const)
     # Use the proper JSON Schema validator instead of custom implementation
@@ -240,8 +308,6 @@ def validate_packet(
     integrity_issue = verify_integrity(packet)
     if integrity_issue:
         issues.append(integrity_issue)
-
-    schema_version = packet.get("schema_version") if isinstance(packet.get("schema_version"), str) else None
 
     # If schema errors exist, we still try some semantic checks only if required fields exist.
     # This helps CI users see all actionable problems at once.
@@ -342,6 +408,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         description="Validate a Context Broker ContextPacket against schema and time semantics.",
     )
     parser.add_argument("packet", type=str, help="Path to a context packet JSON file.")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument(
         "--schema",
         type=str,

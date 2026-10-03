@@ -1,7 +1,7 @@
 # RFC-0001: Context Packet Schema Evolution
 
 ## Status
-Proposed
+Accepted
 
 ## Abstract
 This document defines how the Context Broker ContextPacket schema evolves over time without compromising auditability, safety, or interoperability.
@@ -17,7 +17,7 @@ Schema evolution must therefore be:
 ## Versioning Rules
 
 - Schema versions follow `MAJOR.MINOR.PATCH`
-- Current version: **1.0.0**
+- Current version: **2.0.0**
 
 ### PATCH changes MAY:
 - Fix typos or clarify wording
