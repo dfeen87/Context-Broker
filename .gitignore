@@ -23,9 +23,7 @@ share/python-wheels/
 *.egg
 MANIFEST
 
-# Go
-go.mod
-go.sum
+# Go build artifacts
 root/
 
 # Virtual environment

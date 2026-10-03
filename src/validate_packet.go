@@ -4,12 +4,14 @@
 package main
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"regexp"
 	"strconv"
@@ -22,6 +24,80 @@ import (
 var ttlRe = regexp.MustCompile(`^\s*(\d+)\s*([smhd])\s*$`)
 
 const maxTTL = 365 * 24 * time.Hour
+const maxPacketBytes = 1_048_576
+
+// decodePacket rejects ambiguous JSON before it can enter the trust boundary.
+// encoding/json normally accepts duplicate keys and keeps the last value.
+func decodePacket(data []byte) (map[string]any, error) {
+	if len(data) > maxPacketBytes {
+		return nil, fmt.Errorf("packet exceeds maximum size (%d bytes)", maxPacketBytes)
+	}
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+	if err := rejectDuplicateKeys(decoder); err != nil {
+		return nil, err
+	}
+	if _, err := decoder.Token(); err != io.EOF {
+		if err == nil {
+			return nil, errors.New("multiple JSON values are not allowed")
+		}
+		return nil, err
+	}
+	decoder = json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+	var packet map[string]any
+	if err := decoder.Decode(&packet); err != nil {
+		return nil, err
+	}
+	if packet == nil {
+		return nil, errors.New("packet JSON must be an object")
+	}
+	return packet, nil
+}
+
+func rejectDuplicateKeys(decoder *json.Decoder) error {
+	token, err := decoder.Token()
+	if err != nil {
+		return err
+	}
+	delim, isDelim := token.(json.Delim)
+	if !isDelim {
+		return nil
+	}
+	switch delim {
+	case '{':
+		seen := make(map[string]struct{})
+		for decoder.More() {
+			keyToken, err := decoder.Token()
+			if err != nil {
+				return err
+			}
+			key, ok := keyToken.(string)
+			if !ok {
+				return errors.New("object key must be a string")
+			}
+			if _, exists := seen[key]; exists {
+				return fmt.Errorf("duplicate object key is not allowed: %s", key)
+			}
+			seen[key] = struct{}{}
+			if err := rejectDuplicateKeys(decoder); err != nil {
+				return err
+			}
+		}
+		_, err = decoder.Token()
+		return err
+	case '[':
+		for decoder.More() {
+			if err := rejectDuplicateKeys(decoder); err != nil {
+				return err
+			}
+		}
+		_, err = decoder.Token()
+		return err
+	default:
+		return errors.New("unexpected JSON delimiter")
+	}
+}
 
 func parseDuration(s string, label string) (time.Duration, error) {
 	trimmed := strings.TrimSpace(strings.ToLower(s))
@@ -81,8 +157,8 @@ func main() {
 		failTooling("PACKET_READ_ERROR", err)
 	}
 
-	var packet map[string]any
-	if err := json.Unmarshal(packetBytes, &packet); err != nil {
+	packet, err := decodePacket(packetBytes)
+	if err != nil {
 		failTooling("PACKET_PARSE_ERROR", err)
 	}
 

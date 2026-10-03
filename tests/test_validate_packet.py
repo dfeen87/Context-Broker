@@ -15,9 +15,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 from validate_packet import (
     MAX_PACKET_BYTES,
     MAX_TTL,
+    __version__,
     ValidationIssue,
     ValidationResult,
     load_json,
+    load_schema,
     parse_duration,
     parse_rfc3339,
     validate_packet,
@@ -26,7 +28,7 @@ from validate_packet import (
 
 from jsonschema import Draft7Validator, FormatChecker
 
-_SCHEMA_PATH = Path(__file__).resolve().parent.parent / "schemas" / "context_packet.schema.v1.6.0.json"
+_SCHEMA_PATH = Path(__file__).resolve().parent.parent / "schemas" / "context_packet.schema.v2.0.0.json"
 _FORMAT_CHECKER = FormatChecker()
 
 
@@ -47,7 +49,7 @@ def _now_utc():
 def _make_packet(**overrides):
     now = _now_utc()
     packet = {
-        "schema_version": "1.6.0",
+        "schema_version": "2.0.0",
         "context_id": "ctx_test_001",
         "intent": "testing",
         "scope": "unit-tests",
@@ -130,6 +132,9 @@ class TestParseRfc3339(unittest.TestCase):
 
 
 class TestValidPacket(unittest.TestCase):
+    def test_release_version(self):
+        self.assertEqual(__version__, "2.0.0")
+
     def test_valid_packet_passes(self):
         result = _validate(_make_packet())
         self.assertTrue(result.ok)
@@ -137,14 +142,14 @@ class TestValidPacket(unittest.TestCase):
 
     def test_schema_version_returned(self):
         result = _validate(_make_packet())
-        self.assertEqual(result.schema_version, "1.6.0")
+        self.assertEqual(result.schema_version, "2.0.0")
 
 
 class TestExpiredPacket(unittest.TestCase):
     def test_expired_packet_fails(self):
         past = datetime(2000, 1, 1, tzinfo=timezone.utc)
         packet = {
-            "schema_version": "1.6.0",
+            "schema_version": "2.0.0",
             "context_id": "ctx_expired",
             "intent": "testing",
             "scope": "unit-tests",
@@ -184,6 +189,18 @@ class TestMissingRequiredFields(unittest.TestCase):
         codes = [i.code for i in result.issues]
         self.assertIn("SCHEMA_VIOLATION", codes)
         self.assertFalse(result.ok)
+
+    def test_duplicate_permissions_produce_schema_violation(self):
+        result = _validate(_make_packet(permissions=["read", "read"]))
+        self.assertIn("SCHEMA_VIOLATION", [issue.code for issue in result.issues])
+
+    def test_empty_permission_produces_schema_violation(self):
+        result = _validate(_make_packet(permissions=[""]))
+        self.assertIn("SCHEMA_VIOLATION", [issue.code for issue in result.issues])
+
+    def test_unpaired_integrity_field_produces_schema_violation(self):
+        result = _validate(_make_packet(signature="not-a-signature"))
+        self.assertIn("SCHEMA_VIOLATION", [issue.code for issue in result.issues])
 
 
 class TestTimeMismatch(unittest.TestCase):
@@ -305,6 +322,84 @@ class TestFileSizeGuard(unittest.TestCase):
         finally:
             tmp_path.unlink(missing_ok=True)
 
+    def test_non_standard_nan_is_rejected(self):
+        self._assert_invalid_json('{"payload": {"value": NaN}}')
+
+    def test_duplicate_object_keys_are_rejected(self):
+        self._assert_invalid_json('{"context_id": "first", "context_id": "second"}')
+
+    def test_trailing_json_is_rejected(self):
+        self._assert_invalid_json('{} {}')
+
+    def _assert_invalid_json(self, contents):
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False, encoding="utf-8"
+        ) as f:
+            f.write(contents)
+            tmp_path = Path(f.name)
+        try:
+            with self.assertRaises(RuntimeError):
+                load_json(tmp_path)
+        finally:
+            tmp_path.unlink(missing_ok=True)
+
+
+class TestValidationApiBoundary(unittest.TestCase):
+    def test_invalid_clock_type_fails_closed(self):
+        result = validate_packet(
+            _make_packet(),
+            validator=_make_validator(),
+            now_utc=None,
+            clock_skew=timedelta(seconds=60),
+            allow_future_created_at=timedelta(minutes=5),
+        )
+        self.assertFalse(result.ok)
+        self.assertIn("CONFIG_INVALID", [issue.code for issue in result.issues])
+
+    def test_programmatic_nan_fails_closed(self):
+        result = _validate(_make_packet(payload={"measurement": float("nan")}))
+        self.assertFalse(result.ok)
+        self.assertIn("INPUT_INVALID", [issue.code for issue in result.issues])
+
+    def test_programmatic_infinity_fails_closed(self):
+        result = _validate(_make_packet(payload={"measurement": float("inf")}))
+        self.assertFalse(result.ok)
+        self.assertIn("INPUT_INVALID", [issue.code for issue in result.issues])
+
+    def test_naive_now_fails_closed(self):
+        result = validate_packet(
+            _make_packet(),
+            validator=_make_validator(),
+            now_utc=datetime.now(),
+            clock_skew=timedelta(seconds=60),
+            allow_future_created_at=timedelta(minutes=5),
+        )
+        self.assertFalse(result.ok)
+        self.assertIn("CONFIG_INVALID", [issue.code for issue in result.issues])
+
+    def test_negative_tolerance_fails_closed(self):
+        result = validate_packet(
+            _make_packet(),
+            validator=_make_validator(),
+            now_utc=_now_utc(),
+            clock_skew=timedelta(seconds=-1),
+            allow_future_created_at=timedelta(minutes=5),
+        )
+        self.assertFalse(result.ok)
+        self.assertIn("CONFIG_INVALID", [issue.code for issue in result.issues])
+
+    def test_schema_with_duplicate_keys_is_rejected(self):
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False, encoding="utf-8"
+        ) as f:
+            f.write('{"type": "object", "type": "array"}')
+            tmp_path = Path(f.name)
+        try:
+            with self.assertRaises(RuntimeError):
+                load_schema(tmp_path)
+        finally:
+            tmp_path.unlink(missing_ok=True)
+
 
 class TestCryptographicIntegrity(unittest.TestCase):
     def test_empty_integrity_fields_are_rejected(self):
@@ -328,7 +423,7 @@ class TestCryptographicIntegrity(unittest.TestCase):
         from cryptography.hazmat.primitives import serialization
 
         packet = _make_packet()
-        packet["schema_version"] = "1.6.0"
+        packet["schema_version"] = "2.0.0"
 
         canonical_json = json.dumps(packet, separators=(",", ":"), sort_keys=True).encode("utf-8")
 
@@ -345,9 +440,9 @@ class TestCryptographicIntegrity(unittest.TestCase):
         # Tamper with the packet structure but keep signature valid for original data
         packet["payload"]["message"] = "tampered"
 
-        # We need to validate using 1.6.0 schema for the crypto fields to not trigger schema validation failures
-        schema_path_160 = Path(__file__).resolve().parent.parent / "schemas" / "context_packet.schema.v1.6.0.json"
-        with schema_path_160.open("r", encoding="utf-8") as f:
+        # We need to validate using 2.0.0 schema for the crypto fields to not trigger schema validation failures
+        schema_path_200 = Path(__file__).resolve().parent.parent / "schemas" / "context_packet.schema.v2.0.0.json"
+        with schema_path_200.open("r", encoding="utf-8") as f:
             schema = json.load(f)
         validator = Draft7Validator(schema, format_checker=_FORMAT_CHECKER)
 

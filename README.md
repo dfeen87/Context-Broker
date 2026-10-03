@@ -125,6 +125,9 @@ python src/validate_packet.py examples/packet.expired.json
 
 # Get help
 python src/validate_packet.py --help
+
+# Show the validator release
+python src/validate_packet.py --version
 ```
 
 **Example output (valid packet):**
@@ -150,8 +153,9 @@ Context-Broker/
 │   ├── validate_packet.py        # Python validator (reference)
 │   └── validate_packet.go        # Go validator
 ├── schemas/                      # JSON Schema definitions
-│   ├── context_packet.schema.v1.6.0.json  # Current schema
-│   ├── context_packet.schema.v1.5.0.json  # Previous schema
+│   ├── context_packet.schema.v2.0.0.json  # Current schema
+│   ├── context_packet.schema.v1.6.0.json  # Previous schema
+│   ├── context_packet.schema.v1.5.0.json  # Legacy schema
 │   ├── context_packet.schema.v1.0.0.json  # Legacy schema
 │   └── context_packet.schema.v0.1.json    # Legacy schema
 ├── examples/                     # Sample context packets
@@ -351,6 +355,7 @@ Future work may include additional reference implementations, integration stubs,
 | 📖 [ALCOA Principles](docs/alcoa-and-time.md) | Deep dive into quality framework and time constraints |
 | 🔗 [Interoperability Notes](docs/interoperability-notes.md) | How Context Broker fits in multi-vendor AI ecosystems |
 | 📄 [RFC-0001: Context Packet Evolution](docs/rfc-0001-context-packet-evolution.md) | Design decisions and packet format evolution |
+| 🪨 [BEDROCK 2.0.0 Report](docs/bedrock-2.0.0.md) | Invariants, hardening changes, compatibility, and remaining risks |
 | 🤝 [Contributing Guide](CONTRIBUTING.md) | How to extend and improve Context Broker |
 | 🎓 [Example Packets](examples/) | Valid and expired context packet samples |
 
@@ -362,9 +367,10 @@ Context Broker runs a lightweight GitHub Actions CI workflow on every push and p
 
 **What CI checks:**
 - ✅ Python dependency installation (`pip install -r requirements.txt`)
-- ✅ Syntax validation via `py_compile` on the reference validator
-- ✅ Unit tests (when `tests/` directory exists — currently optional)
+- ✅ Syntax validation for all Python source and tests
+- ✅ Python and Go unit tests (required; absence or failure is fatal)
 - ✅ Smoke test: validates a dynamically-generated context packet against schema and time rules
+- ✅ Negative smoke test: proves expired context is rejected
 
 **What CI intentionally does not check:**
 - ❌ Full end-to-end runtime with external brokers or databases
@@ -377,10 +383,11 @@ Context Broker runs a lightweight GitHub Actions CI workflow on every push and p
 python -m pip install -r requirements.txt
 
 # Verify Python syntax
-python -m py_compile src/validate_packet.py
+python -m compileall -q src tests
 
-# Run unit tests (only if tests/ directory exists)
-python -m unittest discover -s tests 2>/dev/null || echo "No tests directory found"
+# Run unit tests
+python -m unittest discover -s tests
+go test ./...
 
 # Run smoke test: validate a fresh context packet
 python - <<'PY'
@@ -391,7 +398,7 @@ from pathlib import Path
 
 now = datetime.now(timezone.utc)
 packet = {
-    "schema_version": "1.6.0",
+    "schema_version": "2.0.0",
     "context_id": "ctx_local_smoke",
     "intent": "ci_smoke",
     "scope": "ci",

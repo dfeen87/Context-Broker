@@ -26,13 +26,13 @@ jobs:
 
       - name: Validate example packets
         run: |
-          python - <<'PY'
+          PACKET_PATH=$(python - <<'PY'
           import json, tempfile
           from datetime import datetime, timedelta, timezone
           from pathlib import Path
           now = datetime.now(timezone.utc)
           packet = {
-              "schema_version": "1.0.0",
+              "schema_version": "2.0.0",
               "context_id": "ctx_ci_validate",
               "intent": "ci_validation",
               "scope": "ci",
@@ -48,5 +48,9 @@ jobs:
           tmp.write_text(json.dumps(packet), encoding="utf-8")
           print(tmp)
           PY
-          python src/validate_packet.py /tmp/valid_packet.json --output text
-          ! python src/validate_packet.py examples/packet.expired.json || true
+          )
+          python src/validate_packet.py "$PACKET_PATH" --output text
+          if python src/validate_packet.py examples/packet.expired.json --output text; then
+            echo "expired packet was incorrectly accepted" >&2
+            exit 1
+          fi
